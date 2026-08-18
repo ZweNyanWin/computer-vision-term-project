@@ -1,0 +1,16 @@
+# datasets and generated artefacts - too large / reproducible
+data/*
+!data/.gitkeep
+model3d/*
+!model3d/.gitkeep
+renders/*
+!renders/.gitkeep
+model/
+
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+
+# Word lock files
+~$*
