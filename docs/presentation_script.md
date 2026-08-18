@@ -1,91 +1,107 @@
 # 4-minute progress presentation — speaking script
 
-Plain walkthrough of how the project will be done, step by step.
+A walkthrough of the report: the subject, the method, and current status.
 
 ---
 
-## 0:00 – 0:30 · The topic
+## 0:00 – 0:40 · Subject
 
-> "Our topic is the Thai wooden frog.
+> "The subject is the Thai wooden frog, *kob mai* — a hardwood carving hollowed
+> into a resonator, with a ridged back played by scraping a beater across it. It
+> is simultaneously a woodcarving craft and a folk instrument, which is what makes
+> it appropriate for the workshop.
 >
-> It's carved from one piece of hardwood, hollow inside, with a row of ridges cut
-> across the back. You rub the wooden stick along the ridges and it croaks. So
-> it's a Thai handicraft and a simple instrument at the same time.
+> We also chose it for its geometry. It is small, rigid, matte, and has pronounced
+> surface relief in the ridges. Those properties matter for reconstruction — matte
+> surfaces reconstruct far more reliably than glossy ones, and the ridges give
+> dense structure to match against.
 >
-> One note first — our original topic, the Khon masks, was already taken by
-> another team, so we switched to this."
-
----
-
-## 0:30 – 2:45 · How we're doing it, step by step
-
-> "Here's the plan, step by step.
->
-> **Step one — get the frog.** We buy one. They're cheap and sold in any
-> handicraft market. We need the real object in our hands, not pictures off the
-> internet, and I'll explain why in a moment.
->
-> **Step two — photograph it properly.** We put it on a turntable, fix the camera
-> on a tripod so it never moves, and rotate the frog in small steps — about ten
-> degrees at a time. We repeat that at three different camera heights. That gives
-> us roughly a hundred photos covering the frog from every angle, with the
-> lighting and exposure locked the whole time.
->
-> This is the step that decides everything. If the photos are bad, no amount of
-> code fixes it later.
->
-> And this is why we need the real object. You can't do this with images
-> downloaded from the web, because those are photographs of *different* frogs —
-> not the same frog from different angles. The software needs the same physical
-> object each time.
->
-> **Step three — build the 3D model.** Those photos go into reconstruction
-> software that works out where the camera was for every shot and rebuilds the
-> shape from that. The output is a 3D model of our frog with the real wood
-> texture on it.
->
-> We also have a backup here. If the turntable session doesn't work out, we can
-> build a rougher 3D model from a single photograph instead. That code is already
-> written and tested.
->
-> **Step four — render it.** This is the main deliverable. We take the 3D model
-> and generate views of it from angles we never actually photographed — spin it
-> around, look at it from above, produce a turntable video. Our renderer is
-> already built and working.
->
-> **Step five — the classifier.** Separately, we collect photos of Thai wooden
-> handicrafts and train a model to recognise which one it's looking at, so the
-> system can name the object before it reconstructs it.
->
-> **Step six — the workshop.** Put it all together into something a visitor can
-> actually use at the table on the day."
+> For context, our original topic was taken by another team, so this is a change
+> of subject. The pipeline carried over unchanged."
 
 ---
 
-## 2:45 – 3:30 · Where we are now
+## 0:40 – 2:40 · Method
 
-**→ point at the status table in the report**
+**→ Table I, then Section III**
 
-> "Where we actually are:
+> "The report describes a four-stage pipeline from photographs to synthesised
+> views.
 >
-> Step four is **done** — the renderer is built and tested, and we have measured
-> numbers for it in the report.
+> **Stage one, acquisition and segmentation.** The object is isolated from the
+> background by Otsu thresholding, morphological closing and opening, then
+> largest-connected-component selection with contour filling. It assumes a plain
+> background, which we control at capture time rather than solve in software.
 >
-> Step three is **half done** — the single-photo version is written and working.
+> **Stage two, depth estimation.** A monocular depth network — Depth Anything V2,
+> with MiDaS as fallback — predicts a relative depth map from a single photograph.
+> The output is normalised and Gaussian-smoothed, since the raw prediction carries
+> high-frequency noise that would otherwise appear as surface roughness in the
+> mesh.
 >
-> Steps one, two, five and six **haven't started**, because we only fixed the
-> topic recently. We're not claiming any results on the frog itself yet."
+> **Stage three, surface reconstruction.** We lay a regular grid over the
+> segmented region and emit one vertex per sample inside the silhouette, taking
+> depth as height. Each group of four neighbouring vertices becomes two triangles,
+> provided all four fall inside the mask. Texture coordinates come directly from
+> the source image, so the photograph itself becomes the texture map. It exports
+> as OBJ with an MTL material.
+>
+> **Stage four, rendering** — the main contribution. Vertices are transformed into
+> camera space and projected through a pinhole model, with intrinsics built from a
+> chosen field of view. Hidden surfaces are handled in two passes: back-face
+> culling on the sign of the projected signed area, then depth-sorted drawing.
+> Because the proxy is a height field there is no interpenetrating geometry, so
+> depth sorting is sufficient and a per-pixel z-buffer is unnecessary. Each
+> visible triangle is textured by an affine warp between its texture coordinates
+> and its projected coordinates, then shaded with a Lambertian term computed from
+> the camera-space face normal.
+>
+> The renderer is OpenCV and NumPy only — no rendering engine. That was
+> deliberate: the projection, hidden-surface and shading models are implemented
+> rather than called."
 
 ---
 
-## 3:30 – 4:00 · Next, then a question
+## 2:40 – 3:20 · Limitation and the planned extension
 
-> "So the immediate next thing is to buy a frog and shoot the turntable set.
-> That one step unblocks everything after it.
+> "The significant limitation is that single-image reconstruction yields a relief,
+> not a closed surface — it recovers what faces the camera and nothing behind it.
 >
-> One question for you: for the workshop, would you rather we focus on doing one
-> frog really well, or on something faster that works on whatever object a
-> visitor brings to the table?"
+> The planned extension is a turntable capture: ten-degree increments across three
+> camera elevations, roughly a hundred images, fixed lighting and locked exposure,
+> then structure-from-motion. That produces a complete surface, and it drops
+> straight into the same renderer without changing anything downstream.
+>
+> That is the other reason for this object — it is physically obtainable and small
+> enough to put on a turntable. Reconstruction from found images is not viable,
+> because those are different instances of the object rather than multiple views
+> of one."
+
+---
+
+## 3:20 – 3:50 · Status
+
+**→ Table III, then Table II**
+
+> "On status — the renderer is complete and measured. On a test object of 8,813
+> vertices and 17,088 triangles it renders at roughly 1.1 seconds per frame, and a
+> 24-frame turntable in 27 seconds, single-threaded on CPU. Culling removes about
+> eight percent of triangles at forty degrees of yaw. Three defects were found and
+> corrected during validation: a Y-axis convention mismatch between mesh and image
+> coordinates, a default camera distance that clipped the object, and a sign error
+> in the diffuse term.
+>
+> Reconstruction is implemented but the depth network has not been run. Capture,
+> the classifier and the workshop station have not started. The report marks all
+> of those pending rather than estimating them."
+
+---
+
+## 3:50 – 4:00 · Question
+
+> "One point we would like your input on: whether to prioritise a full multi-view
+> reconstruction of a single object, or a faster single-image path that
+> generalises to whatever a visitor brings to the table."
 
 ---
 
@@ -93,28 +109,27 @@ Plain walkthrough of how the project will be done, step by step.
 
 Cut in this order:
 
-1. The backup plan in step three
-2. Step five (classifier) — say "and separately we train a classifier"
-3. The detail in step two — keep only "turntable, fixed camera, about a hundred
-   photos"
+1. The three defects (status section)
+2. Stages one and two — name them, keep the detail on three and four
+3. The segmentation method detail
 
-Never cut: why the real object is needed, step four, or the closing question.
+Never cut: stage four, the relief limitation, or the closing question.
 
 ## Likely questions
 
-**"Why can't you use internet photos?"**
-> "They're different frogs. Reconstruction needs many views of the same physical
-> object — matching one frog against a different one gives nothing."
+**"Why not photogrammetry from the start?"**
+> "It is the intended path — the object was chosen to make a turntable session
+> possible. Single-image reconstruction is what runs today, which let the renderer
+> be built and validated before capture."
 
-**"How accurate will the model be?"**
-> "The turntable version should be good. The single-photo backup only recovers
-> the side facing the camera, not the back — that's why we want the real capture."
+**"How reliable is monocular depth?"**
+> "It is relative, not metric — no absolute scale, so the relief parameter is set
+> by inspection. Multi-view would give scale up to a similarity transform."
 
-**"Why write your own renderer instead of using Blender?"**
-> "We wanted the projection and shading to be our own implementation rather than
-> a library call. It's about 200 lines on top of OpenCV."
+**"Why implement the renderer rather than use an existing one?"**
+> "So the projection, hidden-surface and shading stages are our own
+> implementation. It is roughly 200 lines on top of OpenCV."
 
-**"Where's the training part?"**
-> "Step five, not started. The scripts carried over from our previous topic. We'd
-> like to confirm the categories with you before we spend a day cleaning a
-> dataset."
+**"Where is the training component?"**
+> "Not started. The scraper and transfer-learning script carried over. We would
+> like to confirm the categories with you before committing to a dataset."
