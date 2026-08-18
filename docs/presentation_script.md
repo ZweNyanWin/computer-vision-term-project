@@ -1,138 +1,120 @@
 # 4-minute progress presentation — speaking script
 
-Covers the two items requested: the selected topic, and the 3D rendering pipeline
-(Chapter 14). Have the report open; the **→** marks point at it.
+Plain walkthrough of how the project will be done, step by step.
 
 ---
 
-## 0:00 – 0:30 · Opening
+## 0:00 – 0:30 · The topic
 
-> "Two things to cover, both from your brief: the topic we've selected in Thai
-> arts and culture, and the computer vision pipeline for 3D rendering.
+> "Our topic is the Thai wooden frog.
 >
-> One change first — our original topic, the Khon masks, was already taken by
-> another team, so we've moved to a new subject. The pipeline we'd built carried
-> over unchanged, which I'll come back to."
+> It's carved from one piece of hardwood, hollow inside, with a row of ridges cut
+> across the back. You rub the wooden stick along the ridges and it croaks. So
+> it's a Thai handicraft and a simple instrument at the same time.
+>
+> One note first — our original topic, the Khon masks, was already taken by
+> another team, so we switched to this."
 
 ---
 
-## 0:30 – 1:15 · The selected topic
+## 0:30 – 2:45 · How we're doing it, step by step
 
-**→ title page / Section I-A**
-
-> "Our subject is the Thai wooden frog — *kob mai*.
+> "Here's the plan, step by step.
 >
-> It's a frog carved from a single piece of hardwood, hollowed out into a
-> resonating chamber, with a row of ridges cut across the back. You draw the
-> wooden beater along the ridges and it makes a croaking rasp. So it's a scraped
-> idiophone — the same family as the guiro — and at the same time a piece of Thai
-> woodcarving. It's sold throughout Thai handicraft markets and visitors
-> recognise it immediately.
+> **Step one — get the frog.** We buy one. They're cheap and sold in any
+> handicraft market. We need the real object in our hands, not pictures off the
+> internet, and I'll explain why in a moment.
 >
-> We also chose it for technical reasons. It's small, rigid, matte, and it has
-> strong surface relief in those carved ridges. Most importantly we can actually
-> obtain one and put it on a turntable — which our previous subject never allowed."
+> **Step two — photograph it properly.** We put it on a turntable, fix the camera
+> on a tripod so it never moves, and rotate the frog in small steps — about ten
+> degrees at a time. We repeat that at three different camera heights. That gives
+> us roughly a hundred photos covering the frog from every angle, with the
+> lighting and exposure locked the whole time.
+>
+> This is the step that decides everything. If the photos are bad, no amount of
+> code fixes it later.
+>
+> And this is why we need the real object. You can't do this with images
+> downloaded from the web, because those are photographs of *different* frogs —
+> not the same frog from different angles. The software needs the same physical
+> object each time.
+>
+> **Step three — build the 3D model.** Those photos go into reconstruction
+> software that works out where the camera was for every shot and rebuilds the
+> shape from that. The output is a 3D model of our frog with the real wood
+> texture on it.
+>
+> We also have a backup here. If the turntable session doesn't work out, we can
+> build a rougher 3D model from a single photograph instead. That code is already
+> written and tested.
+>
+> **Step four — render it.** This is the main deliverable. We take the 3D model
+> and generate views of it from angles we never actually photographed — spin it
+> around, look at it from above, produce a turntable video. Our renderer is
+> already built and working.
+>
+> **Step five — the classifier.** Separately, we collect photos of Thai wooden
+> handicrafts and train a model to recognise which one it's looking at, so the
+> system can name the object before it reconstructs it.
+>
+> **Step six — the workshop.** Put it all together into something a visitor can
+> actually use at the table on the day."
 
 ---
 
-## 1:15 – 2:45 · The pipeline (Chapter 14)
+## 2:45 – 3:30 · Where we are now
 
-**→ Section II-A, then Table I**
+**→ point at the status table in the report**
 
-> "Chapter 14 is image-based rendering — synthesising new views of a scene from
-> photographs, instead of modelling and shading it from scratch.
+> "Where we actually are:
 >
-> The chapter organises these methods by how much geometry they use. At one end,
-> light field and lumigraph rendering store a dense sample of rays and interpolate
-> between them, with no geometric model at all. In the middle, view interpolation
-> uses implicit geometry — correspondence, or per-pixel depth. At the other end,
-> you recover an explicit surface and texture it from the source photographs.
+> Step four is **done** — the renderer is built and tested, and we have measured
+> numbers for it in the report.
 >
-> We're at the explicit-geometry end, and that's deliberate. Light field methods
-> need hundreds of densely sampled views, which isn't realistic with a handheld
-> camera. An explicit textured proxy renders convincingly from very few photos.
+> Step three is **half done** — the single-photo version is written and working.
 >
-> Our pipeline has four stages.
->
-> One, acquisition and segmentation — Otsu thresholding, morphology, largest
-> connected component.
->
-> Two, depth estimation — a monocular depth network gives a relative depth map
-> from a single photograph.
->
-> Three, surface reconstruction — that depth map becomes a triangulated
-> height-field mesh, textured with the original photo, exported as an OBJ.
->
-> Four, novel-view rendering, the Chapter 14 stage — project with x equals K,
-> bracket R t, X; remove hidden surfaces by back-face culling and the painter's
-> algorithm; texture each triangle with an affine warp; shade with Lambertian
-> n dot l.
->
-> All of that is course material. We used OpenCV and NumPy only — no rendering
-> engine."
+> Steps one, two, five and six **haven't started**, because we only fixed the
+> topic recently. We're not claiming any results on the frog itself yet."
 
 ---
 
-## 2:45 – 3:20 · What is actually built
+## 3:30 – 4:00 · Next, then a question
 
-**→ Table III, then Table II**
-
-> "The renderer is complete and measured. On a test object — 8,813 vertices,
-> 17,088 triangles — it renders a frame in about 1.1 seconds, and a 24-frame
-> turntable in 27 seconds, single-threaded on CPU. Back-face culling takes it
-> from 17,000 triangles down to about 15,700 at forty degrees of yaw.
+> "So the immediate next thing is to buy a frog and shoot the turntable set.
+> That one step unblocks everything after it.
 >
-> We validated it end to end and found and fixed three bugs: a vertical mirroring
-> from a Y-up versus Y-down convention mismatch, a default camera distance that
-> cropped the object, and a sign error in the Lambertian term.
->
-> To be clear, that's a **test** object. We fixed the frog as our subject only
-> recently, so there's no frog imagery yet — Table II lists everything that hasn't
-> been started."
+> One question for you: for the workshop, would you rather we focus on doing one
+> frog really well, or on something faster that works on whatever object a
+> visitor brings to the table?"
 
 ---
 
-## 3:20 – 4:00 · Next steps, then a question
+## If you run long
 
-> "Next: get a physical frog, shoot a turntable set — ten-degree steps at three
-> camera heights, about 108 images — and run structure-from-motion on it. That
-> gives a complete surface instead of the single-sided relief a single photo can
-> produce, and it's the dense input the stronger image-based rendering methods
-> assume.
->
-> One question. For the workshop, would you rather we prioritise a full
-> multi-view reconstruction of one frog, or a faster single-image pipeline that
-> works on any object a visitor brings to the table?"
+Cut in this order:
 
----
+1. The backup plan in step three
+2. Step five (classifier) — say "and separately we train a classifier"
+3. The detail in step two — keep only "turntable, fixed camera, about a hundred
+   photos"
 
-## If you are running long
-
-Cut, in this order:
-
-1. The three bugs (2:45 section) — keep only "validated end to end"
-2. The middle of the IBR spectrum — say "from no geometry, through implicit, to
-   explicit; we're at the explicit end"
-3. Stages 1–3 detail — name them, describe only stage 4
-
-Never cut: the frog justification, stage 4, or the closing question.
+Never cut: why the real object is needed, step four, or the closing question.
 
 ## Likely questions
 
-**"Why not photogrammetry from the start?"**
-> "That's exactly where we're heading — the frog was chosen because it makes a
-> turntable session possible. Single-image reconstruction is what runs today, so
-> the renderer could be built and tested before capture."
+**"Why can't you use internet photos?"**
+> "They're different frogs. Reconstruction needs many views of the same physical
+> object — matching one frog against a different one gives nothing."
 
-**"Is monocular depth accurate?"**
-> "It's relative, not metric — no absolute scale. That's why the relief parameter
-> is set by inspection right now, and why multi-view is the next stage."
+**"How accurate will the model be?"**
+> "The turntable version should be good. The single-photo backup only recovers
+> the side facing the camera, not the back — that's why we want the real capture."
 
-**"Why not use Blender or Open3D?"**
-> "We wanted the projection, hidden-surface and shading stages to be the course's
-> own models rather than library calls. It's about 200 lines on top of OpenCV."
+**"Why write your own renderer instead of using Blender?"**
+> "We wanted the projection and shading to be our own implementation rather than
+> a library call. It's about 200 lines on top of OpenCV."
 
-**"Where's the classifier / training component?"**
-> "Not started — the scraper and the transfer-learning script carried over from
-> the previous topic. We'd like to confirm the categories with you before we
-> spend an afternoon cleaning a dataset."
+**"Where's the training part?"**
+> "Step five, not started. The scripts carried over from our previous topic. We'd
+> like to confirm the categories with you before we spend a day cleaning a
+> dataset."
