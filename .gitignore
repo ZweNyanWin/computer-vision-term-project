@@ -21,3 +21,9 @@ output/**/meshes/
 
 # Meshes cached while building figures; regenerable.
 output/figures_cache/
+
+# Photogrammetry: staged copies of photographs, the 32 MB usdz and the compiled
+# tool. All regenerable -- the ring takes 60 s to reconstruct.
+recon/input_*/
+recon/*.usdz
+recon/photogrammetry

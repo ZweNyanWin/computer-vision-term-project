@@ -1,0 +1,2 @@
+n_scored,protocol,psnr_mean_db,psnr_median_db,ssim_mean,mesh_vertices,mesh_triangles,yaw_sign,yaw_offset_deg
+35,fit (all photographs were used to build the mesh),10.5572,10.5298,0.2817,25008,49999,-1.0,195.0
