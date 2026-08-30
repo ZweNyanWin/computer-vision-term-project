@@ -20,7 +20,7 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Component | State |
 |---|---|
 | Novel-view renderer (`render3d.py`) | **Done**, tested, measured |
-| Reconstruction (`reconstruct.py`) | **Done** for the shape-proxy path. Learned-depth path still never executed — no `torch` locally; run `colab_depth.ipynb` |
+| Reconstruction (`reconstruct.py`) | **Done**, both paths. Learned depth runs locally — `torch` is installed and Depth Anything V2 Small uses MPS, ~3 s a frame |
 | Progress demo (`run_progress_demo.py`) | **Done** — end-to-end on a synthetic proxy |
 | Unit test (`tests/test_pipeline.py`) | **Passing** |
 | Real frog photographs | **Both shoots done** — 5 hero shots plus a closed 36-frame turntable ring in `data/`, all 36 segmenting cleanly |
@@ -95,22 +95,39 @@ data/                 photographs — gitignored, stays local
 
 ## What the evaluation measured
 
-Withholding every second frame of the 36-frame ring and rendering each held-out
-angle from the nearest captured frame, then scoring both that render and the
-nearest captured photograph against the withheld one. The baseline column is the
-point: a render that cannot beat "just show the closest photograph" has not
+Frames are withheld from the 36-frame ring, each held-out angle is rendered from
+the nearest frame the pipeline *did* see, and both that render and the nearest
+captured photograph are scored against the withheld one. The baseline column is
+the point: a render that cannot beat "just show the closest photograph" has not
 earned its reconstruction stage.
 
-| captured spacing | PSNR gain | SSIM gain |
-|---|---|---|
-| 20° | −2.11 dB | −0.013 |
-| 40° | −1.79 dB | −0.006 |
-| 60° | −1.09 dB | +0.009 |
-| 90° | **+0.10 dB** | **+0.021** |
+Gain over the baseline, in dB (SSIM gain in brackets):
 
-Reconstruction only pays for itself past roughly 60° of spacing; below that,
-frame-switching wins. Monotonic across five runs. **All of it with proxy depth**,
-so treat it as a floor, not the pipeline's capability.
+| spacing | proxy depth | learned depth |
+|---|---|---|
+| 20° | −2.11 (−0.013) | −0.27 (**+0.009**) |
+| 30° | −2.10 (−0.011) | −0.22 (**+0.006**) |
+| 40° | −1.79 (−0.006) | **+0.03** (**+0.017**) |
+| 60° | −1.09 (**+0.009**) | **+0.13** (**+0.024**) |
+| 90° | **+0.10** (**+0.021**) | −0.13 (**+0.007**) |
+
+Learned depth lifts the render by **+1.31 dB on average** and moves the PSNR
+crossover from ~90° down to ~40°. It then turns negative again by 90°, so the
+useful range is bounded at both ends, for two different reasons: below ~40° the
+nearest photograph is nearly the same photograph and hard to beat; past ~60° the
+single-image relief has no back left to show. **The upper bound is the relief
+limitation, and only multi-view removes it.**
+
+Two things not to overstate. The 90° turn-down rests on two points, so say the
+gain is positive at 40° and 60° and negative at 90° — not that the optimum "is"
+40–60°. And every number here comes from one eye-level ring; nothing has looked
+down on the frog yet.
+
+PSNR systematically favours the baseline because it rewards sharp real pixels
+over correct geometry — the baseline is a real photograph at the wrong angle,
+the render is the right angle with reconstruction artifacts. SSIM, which is
+structural, favours the render at every spacing once depth is learned. Worth
+saying plainly in the paper rather than quoting PSNR alone.
 
 Frame 300° is excluded from every run — the operator's hand is in the shot. Say
 so in the paper rather than quietly dropping it.
@@ -158,14 +175,15 @@ GPU on the dev machine — run that stage on Colab and bring the `.obj` back.
 
 ## Next step
 
-Run the learned-depth path. Every number in `output/metrics/` was produced with
-the **synthetic shape proxy**, so it measures segmentation, meshing and
-rendering while the geometry itself is invented. `colab_depth.ipynb` runs Depth
-Anything V2 where `torch` exists; re-running `src/evaluate.py --depth-mode model`
-then tests a specific prediction — that real depth moves the crossover below 60°.
+Shoot rings 2 and 3, at ~30° and ~60° camera elevation. Every result so far
+comes from a single eye-level ring, and the evaluation has now put a number on
+what that costs: past ~60° of spacing the relief has nothing left to show. A
+comparable project reconstructed its subject from one eye-level ring and the
+roof came back as a hole for exactly this reason.
 
-After that: a second and third turntable ring at ~30° and ~60° elevation, which
-is what a closed multi-view reconstruction needs to cover the frog's back.
+After that, multi-view reconstruction (COLMAP or Apple Object Capture) becomes
+possible, and the same `src/evaluate.py` scores it against the same withheld
+photographs — so the mesh and the relief compare on one footing.
 
 ## Why this subject
 

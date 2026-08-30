@@ -33,6 +33,18 @@ Run the automated check if needed:
 python -m unittest discover -s tests -v
 ```
 
+## Measured results
+
+```bash
+python src/evaluate.py --frames data --every 4 --exclude 300 --depth-mode model
+python src/make_figures.py        # writes figures/
+```
+
+Held-out scoring against real photographs the pipeline never saw, with a
+frame-switching baseline alongside so the gain is attributable. Numbers and the
+two caveats that go with them are in `CLAUDE.md`; the CSVs in `output/metrics/`
+are the only source for figures quoted in the report.
+
 ## What is implemented now
 
 - Otsu thresholding on saturation, morphology, largest-component selection, and
@@ -60,14 +72,16 @@ today's checkpoint.
 
 ## Learned depth on a real frog photo
 
-There is no `torch` on the project laptop, so the monocular depth stage runs on
-Colab: open `colab_depth.ipynb`, upload a photograph, and it returns the OBJ
-bundle. The notebook checks the depth orientation before meshing — Depth
-Anything predicts inverse depth, which this pipeline would otherwise turn into a
-hollow relief.
+Runs locally. Depth Anything V2 Small is a 25M-parameter model, so it needs no
+GPU — on Apple silicon it uses MPS and takes about three seconds a frame. Install
+the optional depth packages; weights download on first use, so that run needs
+internet.
 
-To run it locally instead, install the optional depth packages. Model weights
-download the first time the command runs, so internet access is required then.
+Depth Anything predicts *inverse* depth, which this pipeline would otherwise turn
+into a hollow relief. `orient_depth` catches that by measuring the object against
+its backdrop, and prints when it flips.
+
+`colab_depth.ipynb` does the same thing on Colab, for a machine without `torch`.
 
 ```bash
 python -m pip install -r requirements-depth.txt
