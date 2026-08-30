@@ -101,33 +101,45 @@ captured photograph are scored against the withheld one. The baseline column is
 the point: a render that cannot beat "just show the closest photograph" has not
 earned its reconstruction stage.
 
-Gain over the baseline, in dB (SSIM gain in brackets):
+### Two claims are supported. Do not write more than these.
 
-| spacing | proxy depth | learned depth |
-|---|---|---|
-| 20° | −2.11 (−0.013) | −0.27 (**+0.009**) |
-| 30° | −2.10 (−0.011) | −0.22 (**+0.006**) |
-| 40° | −1.79 (−0.006) | **+0.03** (**+0.017**) |
-| 60° | −1.09 (**+0.009**) | **+0.13** (**+0.024**) |
-| 90° | **+0.10** (**+0.021**) | −0.13 (**+0.007**) |
+**1. Learned depth beats the shape proxy, decisively.** Mean render quality rises
++1.31 dB across every spacing tested. Large, consistent, not marginal.
 
-Learned depth lifts the render by **+1.31 dB on average** and moves the PSNR
-crossover from ~90° down to ~40°. It then turns negative again by 90°, so the
-useful range is bounded at both ends, for two different reasons: below ~40° the
-nearest photograph is nearly the same photograph and hard to beat; past ~60° the
-single-image relief has no back left to show. **The upper bound is the relief
-limitation, and only multi-view removes it.**
+**2. At 60° spacing the render is structurally closer to the withheld photograph
+than frame-switching is:** ΔSSIM **+0.024, 95% CI [+0.014, +0.035]**, n=30,
+t=4.56. This is the only per-spacing result that clears its own error bars.
 
-Two things not to overstate. The 90° turn-down rests on two points, so say the
-gain is positive at 40° and 60° and negative at 90° — not that the optimum "is"
-40–60°. And every number here comes from one eye-level ring; nothing has looked
-down on the frog yet.
+Everything else is noise. Paired per-position differences, full 36-frame ring:
 
-PSNR systematically favours the baseline because it rewards sharp real pixels
-over correct geometry — the baseline is a real photograph at the wrong angle,
-the render is the right angle with reconstruction artifacts. SSIM, which is
-structural, favours the render at every spacing once depth is learned. Worth
-saying plainly in the paper rather than quoting PSNR alone.
+| spacing | n | ΔPSNR (95% CI) | ΔSSIM (95% CI) |
+|---|---|---|---|
+| 20° | 18 | −0.19 [−0.55, +0.16] | +0.009 [−0.002, +0.020] |
+| 40° | 27 | −0.23 [−0.58, +0.13] | +0.008 [−0.005, +0.021] |
+| 60° | 30 | +0.22 [−0.02, +0.45] | **+0.024 [+0.014, +0.035]** |
+| 90° | 32 | −0.24 [−0.51, +0.03] | +0.003 [−0.008, +0.015] |
+
+**No PSNR result is significant at any spacing.** Every interval spans zero.
+
+### How this was caught, so it is not repeated
+
+An earlier version of this file claimed learned depth "moves the PSNR crossover
+to ~40°", from a +0.03 dB gain. Re-running with one extra photograph (frame 300,
+re-shot) turned that same number into −0.23 dB. **One frame in 36 moved the
+result by more than the effect being reported.** The claim was noise given a
+narrative.
+
+So: gains under ~0.3 dB here mean nothing, and any per-spacing claim needs its
+confidence interval computed from the per-position paired differences in
+`output/full_e*/metrics.csv` — not from a difference of two means.
+
+PSNR and SSIM disagree for a reason worth stating in the paper: PSNR rewards
+sharp pixels and the baseline is a *real photograph* at the wrong angle, while
+SSIM compares structure and the render is at the right angle. For novel-view
+synthesis, structure is the property that matters.
+
+Every number here comes from one eye-level ring. Nothing has looked down on the
+frog yet.
 
 Frame 300° is excluded from every run — the operator's hand is in the shot. Say
 so in the paper rather than quietly dropping it.

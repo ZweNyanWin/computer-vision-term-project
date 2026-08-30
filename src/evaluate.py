@@ -294,6 +294,20 @@ def main() -> None:
           f"{summary['ssim_render_mean'] - summary['ssim_baseline_mean']:>+10.3f}")
     print(f"\nrender beats baseline at {summary['render_wins_psnr']}/{len(rows)} positions on PSNR, "
           f"{summary['render_wins_ssim']}/{len(rows)} on SSIM")
+
+    # A difference of two means says nothing without its error bar. Each position
+    # carries both scores, so the paired difference is the right statistic -- and
+    # it is what stops a 0.03 dB gain being written up as a crossover.
+    for label, render_col, baseline_col in (
+        ("PSNR", "psnr_render_db", "psnr_baseline_db"),
+        ("SSIM", "ssim_render", "ssim_baseline"),
+    ):
+        diff = column(render_col) - column(baseline_col)
+        stderr = diff.std(ddof=1) / np.sqrt(len(diff)) if len(diff) > 1 else float("inf")
+        margin = 1.96 * stderr
+        verdict = "significant" if abs(diff.mean()) > margin else "NOT significant (interval spans zero)"
+        print(f"  paired d{label}: {diff.mean():+.4f}  95% CI [{diff.mean()-margin:+.4f}, "
+              f"{diff.mean()+margin:+.4f}]  {verdict}")
     if args.depth_mode == "shape":
         print("\nNOTE: depth is the synthetic shape proxy, not a learned prediction.")
         print("      These numbers measure segmentation, meshing and rendering only.")

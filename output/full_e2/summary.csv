@@ -1,0 +1,2 @@
+n_scored,n_captured,captured_spacing_deg,depth_mode,psnr_render_mean_db,psnr_render_median_db,ssim_render_mean,psnr_baseline_mean_db,psnr_baseline_median_db,ssim_baseline_mean,psnr_gain_db,render_wins_psnr,render_wins_ssim,reconstruct_seconds,render_score_seconds
+18,18,20.0,model,15.0345,15.3367,0.39203,15.2248,15.7193,0.38279,-0.1903,8,13,61.23,9.65
