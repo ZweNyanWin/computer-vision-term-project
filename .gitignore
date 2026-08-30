@@ -10,6 +10,11 @@ data/**
 model3d/*
 outputs/*
 
+# Meshes the evaluation reconstructs on the way to a score: ~100 MB, and fully
+# regenerable from the photographs. The CSVs beside them are the actual result
+# and stay tracked, because the paper cites them.
+output/**/meshes/
+
 !data/.gitkeep
 !model3d/.gitkeep
 !outputs/.gitkeep

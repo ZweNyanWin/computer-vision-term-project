@@ -23,7 +23,8 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Reconstruction (`reconstruct.py`) | **Done** for the shape-proxy path. Learned-depth path still never executed — no `torch` locally; run `colab_depth.ipynb` |
 | Progress demo (`run_progress_demo.py`) | **Done** — end-to-end on a synthetic proxy |
 | Unit test (`tests/test_pipeline.py`) | **Passing** |
-| Real frog photographs | **Shoot A done** — 5 photos in `data/`, all segmenting cleanly. Turntable (Shoot B) not started |
+| Real frog photographs | **Both shoots done** — 5 hero shots plus a closed 36-frame turntable ring in `data/`, all 36 segmenting cleanly |
+| Hold-out evaluation (`src/evaluate.py`) | **Done and run** — see `output/metrics/` |
 | Multi-view / structure-from-motion | **Not started** |
 | Classifier (`scraper.py`, `training/train.py`) | **Not started.** Carried over from an earlier topic |
 | Workshop station | **Not started** |
@@ -80,14 +81,39 @@ reconstruct.py        photo -> segmentation -> depth -> textured OBJ
 render3d.py           OBJ -> novel views / turntable video
 run_progress_demo.py  end-to-end demo on a synthetic proxy; writes outputs/
 colab_depth.ipynb     Depth Anything V2 on Colab; returns the .obj bundle
+src/evaluate.py       hold-out scoring against withheld photographs
+src/metrics.py        PSNR and SSIM on NumPy/OpenCV, no scikit-image
 tests/test_pipeline.py
 CAPTURE.md            how to photograph the frog (turntable protocol)
 scraper.py            dataset collection for the classifier (not started)
 training/train.py     MobileNetV2 transfer learning (not started)
 docs/                 progress report (.docx) and the presentation script
 outputs/              contact sheet + metrics from the demo (evidence)
+output/metrics/       hold-out CSVs — the only source for numbers in the paper
 data/                 photographs — gitignored, stays local
 ```
+
+## What the evaluation measured
+
+Withholding every second frame of the 36-frame ring and rendering each held-out
+angle from the nearest captured frame, then scoring both that render and the
+nearest captured photograph against the withheld one. The baseline column is the
+point: a render that cannot beat "just show the closest photograph" has not
+earned its reconstruction stage.
+
+| captured spacing | PSNR gain | SSIM gain |
+|---|---|---|
+| 20° | −2.11 dB | −0.013 |
+| 40° | −1.79 dB | −0.006 |
+| 60° | −1.09 dB | +0.009 |
+| 90° | **+0.10 dB** | **+0.021** |
+
+Reconstruction only pays for itself past roughly 60° of spacing; below that,
+frame-switching wins. Monotonic across five runs. **All of it with proxy depth**,
+so treat it as a floor, not the pipeline's capability.
+
+Frame 300° is excluded from every run — the operator's hand is in the shot. Say
+so in the paper rather than quietly dropping it.
 
 ## Running it
 
@@ -132,10 +158,14 @@ GPU on the dev machine — run that stage on Colab and bring the `.obj` back.
 
 ## Next step
 
-Photograph the frog. `CAPTURE.md` has the protocol: five hero shots first,
-validate the segmentation mask, then the turntable set — 10° increments across
-three camera elevations, ~112 images, fixed lights, locked exposure. Everything
-downstream is blocked on this.
+Run the learned-depth path. Every number in `output/metrics/` was produced with
+the **synthetic shape proxy**, so it measures segmentation, meshing and
+rendering while the geometry itself is invented. `colab_depth.ipynb` runs Depth
+Anything V2 where `torch` exists; re-running `src/evaluate.py --depth-mode model`
+then tests a specific prediction — that real depth moves the crossover below 60°.
+
+After that: a second and third turntable ring at ~30° and ~60° elevation, which
+is what a closed multi-view reconstruction needs to cover the frog's back.
 
 ## Why this subject
 

@@ -1,0 +1,6 @@
+captured_spacing_deg,n_captured,n_scored,psnr_render_db,psnr_baseline_db,psnr_gain_db,ssim_render,ssim_baseline,render_wins_psnr,depth_mode
+20.0,18,17,13.3754,15.4871,-2.1117,0.37324,0.38656,2,shape
+30.0,12,23,13.0925,15.1945,-2.102,0.37312,0.3837,2,shape
+40.0,9,26,13.1947,14.9808,-1.7861,0.36989,0.37598,3,shape
+60.0,6,29,12.8407,13.9349,-1.0941,0.34791,0.33853,10,shape
+90.0,4,31,12.1605,12.0588,0.1016,0.31883,0.2974,21,shape
