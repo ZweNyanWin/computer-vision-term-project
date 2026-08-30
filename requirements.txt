@@ -1,15 +1,3 @@
-# rendering + reconstruction geometry (always needed)
-opencv-python>=4.8
+# The progress demo and renderer only need these packages.
 numpy>=1.24
-
-# monocular depth stage only - run on Colab if you have no GPU
-torch>=2.0
-transformers>=4.40
-Pillow>=10.0
-
-# classifier stage only
-tensorflow>=2.15
-
-# dataset collection only
-ddgs
-requests
+opencv-python>=4.8

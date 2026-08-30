@@ -1,0 +1,28 @@
+{
+  "status": "progress-check prototype; real frog capture pending",
+  "depth_method": "synthetic shape proxy (progress demo only)",
+  "image_size": [
+    640,
+    480
+  ],
+  "foreground_percent": 29.37,
+  "mesh_vertices": 3613,
+  "mesh_triangles": 6898,
+  "view_yaws_degrees": [
+    -35.0,
+    -18.0,
+    0.0,
+    18.0,
+    35.0
+  ],
+  "triangles_drawn_per_view": [
+    6213,
+    6869,
+    6897,
+    6891,
+    6341
+  ],
+  "render_seconds_total": 3.694,
+  "render_seconds_per_view": 0.739,
+  "video": "/Users/zwenyanwin/Desktop/Computer Vision/Term_Project/outputs/progress_novel_views.mp4"
+}

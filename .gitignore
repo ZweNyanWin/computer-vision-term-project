@@ -1,16 +1,12 @@
-# datasets and generated artefacts - too large / reproducible
-data/*
-!data/.gitkeep
-model3d/*
-!model3d/.gitkeep
-renders/*
-!renders/.gitkeep
-model/
-
 __pycache__/
 *.pyc
 .DS_Store
-.vscode/
 
-# Word lock files
-~$*
+# Generated locally by the progress demo or the real reconstruction.
+data/**
+model3d/*
+outputs/*
+
+!data/.gitkeep
+!model3d/.gitkeep
+!outputs/.gitkeep

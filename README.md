@@ -1,118 +1,98 @@
-# Image-Based 3D Rendering of the Thai Wooden Frog (Kob Mai)
+# Thai Wooden Frog — Image-Based 3D Rendering
 
-CSX 4213 Computer Vision term project — Workshop on Thai Arts and Culture,
-22 September 2026.
+This folder contains the runnable prototype described in
+`CSX4213_Progress_Report_3D_Rendering.docx`.
 
-The subject is the Thai wooden frog (**กบไม้**, *kob mai*): a frog carved from a
-single piece of hardwood, hollowed into a resonating chamber, with ridges cut
-across its back. Drawing the wooden beater along the ridges produces a croaking
-rasp, so it is a scraped idiophone in the same family as the guiro — and at the
-same time a piece of Thai woodcarving.
+The real wooden frog has not been purchased or photographed yet. For today's
+progress check, the code therefore creates a clearly labelled synthetic wooden
+proxy and runs the complete downstream pipeline. It does **not** claim that the
+temporary depth map or output is a result for the Thai wooden frog.
 
-The goal is **novel-view synthesis**: photograph the object, recover a textured
-geometric proxy, then render it from viewpoints that were never photographed.
-This follows Szeliski Chapter 14, *Image-Based Rendering*, and sits at the
-explicit-geometry end of that spectrum.
-
-## Pipeline
-
-```
-photographs ──► segmentation ──► depth estimation ──► surface reconstruction ──► novel-view rendering
-                 (Otsu +           (Depth Anything      (height-field mesh,        (K[R|t]X, culling,
-                  morphology)       V2 / MiDaS)          textured OBJ)              painter's, texture,
-                                                                                    Lambertian shading)
-```
-
-| Stage | Method | Szeliski ch. |
-|-------|--------|--------------|
-| Acquisition, segmentation | Otsu, morphology, largest component | 2, 3 |
-| Depth estimation | monocular network (pretrained) | 12 |
-| Surface reconstruction | height-field mesh, OBJ + MTL | 13 |
-| Projection | `x = K [R\|t] X` | 2 |
-| Hidden-surface removal | back-face culling + painter's algorithm | 14 |
-| Texture mapping | per-triangle affine warp | 3, 14 |
-| Shading | Lambertian `n · l` | 2 |
-
-No rendering engine is used — the renderer is built from the course's own camera,
-transformation and reflectance models, on top of OpenCV and NumPy only.
-
-## Setup
+## Run today's progress demo
 
 ```bash
-conda activate cv                # opencv + numpy
-pip install -r requirements.txt  # torch/transformers only needed for depth
+cd "/Users/zwenyanwin/Desktop/Computer Vision/Term_Project"
+conda activate cv
+python run_progress_demo.py
 ```
 
-`render3d.py` runs anywhere. `depth_to_mesh.py` needs PyTorch, so run that stage
-on Google Colab (free GPU) and bring the `.obj` back.
+The main image to show is:
 
-## Usage
+```text
+outputs/progress_contact_sheet.png
+```
 
-**1 — reconstruct a mesh from one photo**
+It shows six checkpoint stages: synthetic input, segmentation mask, temporary
+depth proxy, front rendering, and two novel views. The terminal also prints the
+vertex count, triangle count, and rendering time. A short animation is written
+to `outputs/progress_novel_views.mp4`. No notebook (`.ipynb`) is required.
+
+Run the automated check if needed:
 
 ```bash
-python depth_to_mesh.py data/frog/frog_front.jpg --out model3d/frog
-# -> model3d/frog.obj  .mtl  .png  _depth.png
+python -m unittest discover -s tests -v
 ```
 
-Useful flags: `--relief 0.2–0.5` (depth exaggeration), `--threshold N` if Otsu
-picks the wrong side of the histogram, `--no-segment` to mesh the whole frame.
+## What is implemented now
 
-**2 — render novel views**
+- Otsu thresholding, morphology, largest-component selection, and contour fill
+- temporary analytic depth proxy for an offline demonstration
+- height-field mesh creation
+- textured OBJ and MTL export
+- pinhole projection using `x = K[R|t]X`
+- back-face culling and painter's depth ordering
+- affine texture mapping for every visible triangle
+- Lambertian shading
+- progress contact sheet and JSON performance metrics
+
+## What remains pending
+
+- buying and photographing the real Thai wooden frog
+- running learned monocular depth on that real photograph
+- capturing the multi-view turntable image set
+- structure-from-motion / complete closed-surface reconstruction
+- the optional classifier and workshop interface
+
+These pending items match the progress report and do not need to be finished for
+today's checkpoint.
+
+## Use a real frog photo later
+
+First install the optional depth packages. Model weights will be downloaded the
+first time the command runs, so internet access is required then.
 
 ```bash
-# single view
-python render3d.py model3d/frog.obj --yaw 40 --pitch -10 --out renders/frog40
-
-# turntable video
-python render3d.py model3d/frog.obj --frames 36 --video --out renders/frog
+python -m pip install -r requirements-depth.txt
+python reconstruct.py data/frog_front.jpg \
+  --depth-mode model \
+  --out model3d/frog \
+  --relief 0.35 \
+  --grid 120
 ```
 
-Inspect a mesh by hand at <https://3dviewer.net> — drag in the `.obj`, `.mtl`
-and `.png` together.
+Render a safe novel-view arc for the single-image relief:
 
-**3 — classification component** (`scraper.py` → clean → `training/train.py`)
-
-MobileNetV2 transfer learning over Thai carved wooden handicraft categories, so
-the system can name the object before reconstructing it. Classes are provisional;
-see the TODO in `scraper.py`.
-
-## Status
-
-| Component | Status |
-|-----------|--------|
-| Novel-view renderer | done, measured |
-| Depth-to-mesh reconstruction | implemented; depth network not yet run |
-| Frog image capture | not started |
-| Multi-view / turntable set | planned — see `docs/capture_guide.md` |
-| Classifier | not started |
-| Workshop station | not started |
-
-Measured on a test object: 8,813 vertices / 17,088 triangles, 1.1 s per 560×560
-frame, 24-frame turntable in 26.7 s, single-threaded CPU.
-
-## Why this object
-
-Unlike a museum artefact, the wooden frog is small, rigid, matte, cheap and
-obtainable. It can be put on a turntable and photographed from every angle, which
-makes genuine **multi-view** capture possible — and multi-view is what lifts the
-reconstruction from a single-sided relief to a complete surface. That capture
-protocol is in [`docs/capture_guide.md`](docs/capture_guide.md).
-
-## Layout
-
-```
-depth_to_mesh.py       single image -> textured relief mesh
-render3d.py            mesh -> novel views / turntable video
-scraper.py             dataset collection for the classifier
-training/train.py      MobileNetV2 transfer learning
-data/                  input images (gitignored)
-model3d/               reconstructed meshes (gitignored)
-renders/               rendered output (gitignored)
-docs/                  progress report, capture guide
+```bash
+python render3d.py model3d/frog.obj \
+  --frames 9 \
+  --yaw 0 \
+  --sweep 80 \
+  --video \
+  --out outputs/frog
 ```
 
-## Team
+A single photograph produces only a front-facing relief, so a narrow viewing arc
+is honest. A full 360-degree turntable should be rendered only after the later
+multi-view reconstruction creates a complete surface.
 
-- Zwe Nyan Win
-- (teammate)
+## File guide
+
+```text
+run_progress_demo.py   one-command offline checkpoint
+reconstruct.py         segmentation, depth preparation, mesh, OBJ export
+render3d.py            novel-view renderer
+tests/                 small offline verification
+data/                  source photographs
+model3d/               OBJ, MTL, texture, mask, and depth outputs
+outputs/               rendered views, contact sheet, and metrics
+```

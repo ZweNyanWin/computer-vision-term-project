@@ -1,0 +1,5 @@
+# Optional: only needed later for learned monocular depth from the real frog photo.
+-r requirements.txt
+transformers>=4.40
+torch>=2.0
+Pillow>=10.0
