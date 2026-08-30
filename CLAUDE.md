@@ -118,10 +118,13 @@ validate the segmentation mask, then the turntable set — 10° increments acros
 three camera elevations, ~112 images, fixed lights, locked exposure. Everything
 downstream is blocked on this.
 
-## History
+## Why this subject
 
-The project previously used Thai Khon masks. That topic was claimed by another
-team and the subject changed to the wooden frog; the pipeline was topic-agnostic
-and carried over unchanged. The frog was chosen partly because it is small,
-matte, rigid and obtainable — meaning a genuine turntable capture is possible,
-which was never possible with museum masks.
+The frog was chosen deliberately for its capture properties: small, matte, rigid,
+and obtainable. That means it can be placed on a turntable and photographed from
+every angle, so a genuine multi-view reconstruction is achievable.
+
+This is also why rule 4 above exists. An earlier plan depended on reconstructing
+an object that could only be found in online photographs, and that does not work:
+those are photographs of different instances, not multiple views of one object.
+Owning the physical object is what makes the reconstruction possible.
