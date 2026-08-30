@@ -25,39 +25,59 @@ import cv2
 import numpy as np
 
 
-def segment_foreground(bgr: np.ndarray, threshold: int | None = None) -> np.ndarray:
-    """Return a boolean mask for the largest object on a plain background."""
-    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+def _corner_fraction(binary: np.ndarray) -> float:
+    """Fraction of the four corner patches that a binary image marks as set.
 
-    if threshold is None:
-        _, bright = cv2.threshold(
-            blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        )
-    else:
-        if not 0 <= threshold <= 255:
-            raise ValueError("threshold must be between 0 and 255")
-        _, bright = cv2.threshold(blurred, threshold, 255, cv2.THRESH_BINARY)
+    The background normally occupies the image corners, so a mask that fills
+    them has almost certainly latched onto the background instead of the object.
+    """
+    corner_size = max(2, min(binary.shape) // 20)
+    corners = np.concatenate(
+        [
+            binary[:corner_size, :corner_size].ravel(),
+            binary[:corner_size, -corner_size:].ravel(),
+            binary[-corner_size:, :corner_size].ravel(),
+            binary[-corner_size:, -corner_size:].ravel(),
+        ]
+    )
+    return float(np.mean(corners > 0))
 
-    # Try both polarities. The background normally occupies the image corners,
-    # so the polarity with fewer foreground corner pixels is the object mask.
-    candidates = (bright, cv2.bitwise_not(bright))
-    corner_size = max(2, min(gray.shape) // 20)
 
-    def corner_fraction(candidate: np.ndarray) -> float:
-        corners = np.concatenate(
-            [
-                candidate[:corner_size, :corner_size].ravel(),
-                candidate[:corner_size, -corner_size:].ravel(),
-                candidate[-corner_size:, :corner_size].ravel(),
-                candidate[-corner_size:, -corner_size:].ravel(),
-            ]
-        )
-        return float(np.mean(corners > 0))
+def _otsu_separability(channel: np.ndarray) -> float:
+    """Return Otsu's between-class variance ratio for one channel, in [0, 1].
 
-    binary = min(candidates, key=lambda c: (corner_fraction(c), np.mean(c > 0)))
+    This is the quantity Otsu's method maximises. A high value means the
+    channel splits into two well-separated populations, which is what makes it
+    a good feature to segment on; a low value means the split is arbitrary.
+    """
+    histogram = cv2.calcHist([channel], [0], None, [256], [0, 256]).ravel()
+    probability = histogram / max(histogram.sum(), 1.0)
+    levels = np.arange(256)
+    mean = float((probability * levels).sum())
+    variance = float((probability * (levels - mean) ** 2).sum())
+    if variance <= 0:
+        return 0.0
 
-    kernel_size = max(3, int(round(min(gray.shape) / 80)) | 1)
+    split, _ = cv2.threshold(channel, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    split = int(split)
+    weight_low = float(probability[: split + 1].sum())
+    weight_high = float(probability[split + 1 :].sum())
+    if weight_low <= 0 or weight_high <= 0:
+        return 0.0
+
+    mean_low = float((probability[: split + 1] * levels[: split + 1]).sum()) / weight_low
+    mean_high = float((probability[split + 1 :] * levels[split + 1 :]).sum()) / weight_high
+    return weight_low * weight_high * (mean_high - mean_low) ** 2 / variance
+
+
+def _refine(binary: np.ndarray) -> np.ndarray:
+    """Morphological cleanup, largest-component selection, and contour fill.
+
+    The kernel is deliberately small. A larger one closes the carved cavity but
+    also bridges the object to nearby surfaces of a similar tone, which silently
+    fuses the table into the silhouette.
+    """
+    kernel_size = max(3, int(round(min(binary.shape) / 80)) | 1)
     kernel = np.ones((kernel_size, kernel_size), np.uint8)
     binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
     binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=1)
@@ -71,7 +91,66 @@ def segment_foreground(bgr: np.ndarray, threshold: int | None = None) -> np.ndar
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     filled = np.zeros_like(binary)
     cv2.drawContours(filled, contours, -1, 255, cv2.FILLED)
-    return filled > 0
+    return filled
+
+
+def _mask_from_channel(channel: np.ndarray, threshold: int | None = None) -> np.ndarray:
+    """Threshold one channel and return the cleaned foreground mask."""
+    if threshold is None:
+        _, binary = cv2.threshold(channel, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    else:
+        _, binary = cv2.threshold(channel, threshold, 255, cv2.THRESH_BINARY)
+
+    # Try both polarities and keep whichever leaves the corners emptier.
+    candidates = (binary, cv2.bitwise_not(binary))
+    chosen = min(candidates, key=lambda c: (_corner_fraction(c), np.mean(c > 0)))
+    return _refine(chosen)
+
+
+def segment_foreground(
+    bgr: np.ndarray,
+    threshold: int | None = None,
+    channel: str = "auto",
+) -> np.ndarray:
+    """Return a boolean mask for the largest object on a plain background.
+
+    Brightness alone is fragile: an unevenly lit backdrop spans a wide range of
+    grey levels, so a single global threshold cuts through the background rather
+    than between background and object. Saturation is far more stable here,
+    because a neutral backdrop stays desaturated under any illumination while
+    the wood keeps its warm hue. ``auto`` therefore segments on whichever of the
+    two channels Otsu separates more cleanly, then falls back to the other if
+    the winner's mask covers the image corners.
+    """
+    if threshold is not None and not 0 <= threshold <= 255:
+        raise ValueError("threshold must be between 0 and 255")
+    if channel not in ("auto", "saturation", "gray"):
+        raise ValueError(f"unknown segmentation channel: {channel}")
+
+    gray = cv2.GaussianBlur(cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+    saturation = cv2.GaussianBlur(
+        cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)[..., 1], (5, 5), 0
+    )
+
+    # A manual threshold is a grey level by definition, so it pins the channel.
+    if threshold is not None or channel == "gray":
+        return _mask_from_channel(gray, threshold) > 0
+    if channel == "saturation":
+        return _mask_from_channel(saturation) > 0
+
+    ordered = sorted(
+        (("saturation", saturation), ("gray", gray)),
+        key=lambda item: _otsu_separability(item[1]),
+        reverse=True,
+    )
+    fallback: np.ndarray | None = None
+    for _, candidate in ordered:
+        mask = _mask_from_channel(candidate)
+        if _corner_fraction(mask) < 0.05:
+            return mask > 0
+        if fallback is None:
+            fallback = mask
+    return fallback > 0
 
 
 def shape_proxy_depth(mask: np.ndarray) -> np.ndarray:
@@ -107,8 +186,39 @@ def shape_proxy_depth(mask: np.ndarray) -> np.ndarray:
     return depth.astype(np.float32)
 
 
-def estimate_model_depth(bgr: np.ndarray) -> np.ndarray:
-    """Estimate relative depth with pretrained Depth Anything V2."""
+def orient_depth(depth: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, bool]:
+    """Put a depth map into this pipeline's convention: small values are near.
+
+    ``build_mesh`` writes the depth value straight into the vertex z coordinate
+    and ``render3d`` projects with the camera on the low-z side, so a *larger*
+    value sits *further* from the camera. Monocular networks normally predict
+    the opposite — inverse depth, where the nearest surface scores highest — and
+    which way round a given checkpoint reports is not something to assume.
+
+    So measure it instead. The photographed object stands in front of its
+    backdrop, so whichever side of the mask carries the smaller values is the
+    near side. If the object reads as further away than the background the map
+    is inverted, and the relief would come out hollow.
+
+    Returns the oriented map and whether it had to be flipped. Falls back to
+    returning the input unchanged when the mask leaves nothing to compare.
+    """
+    if not mask.any() or mask.all():
+        return depth, False
+
+    object_depth = float(np.median(depth[mask]))
+    background_depth = float(np.median(depth[~mask]))
+    if object_depth <= background_depth:
+        return depth, False
+    return (float(depth.max()) - depth).astype(np.float32), True
+
+
+def estimate_model_depth(bgr: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
+    """Estimate relative depth with pretrained Depth Anything V2.
+
+    Depth Anything predicts inverse depth, so the raw map is oriented against
+    ``mask`` before being returned; see :func:`orient_depth`.
+    """
     try:
         from PIL import Image
         from transformers import pipeline
@@ -132,7 +242,13 @@ def estimate_model_depth(bgr: np.ndarray) -> np.ndarray:
     low, high = float(depth.min()), float(depth.max())
     if high - low < 1e-6:
         raise RuntimeError("the depth model returned a flat depth map")
-    return ((depth - low) / (high - low)).astype(np.float32)
+    depth = ((depth - low) / (high - low)).astype(np.float32)
+
+    if mask is not None:
+        depth, flipped = orient_depth(depth, mask)
+        if flipped:
+            print("depth map was inverse depth; flipped so near surfaces are near")
+    return depth
 
 
 def load_depth_image(path: Path, size: tuple[int, int], invert: bool = False) -> np.ndarray:
@@ -270,6 +386,7 @@ def reconstruct_photo(
     no_segment: bool = False,
     relief: float = 0.35,
     grid: int = 100,
+    segment_channel: str = "auto",
 ) -> dict[str, object]:
     """Run segmentation, depth preparation, mesh creation, and export."""
     bgr = cv2.imread(str(image_path))
@@ -279,7 +396,11 @@ def reconstruct_photo(
     scale = 900 / max(bgr.shape[:2])
     if scale < 1:
         bgr = cv2.resize(bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
-    mask = np.ones(bgr.shape[:2], dtype=bool) if no_segment else segment_foreground(bgr, threshold)
+    mask = (
+        np.ones(bgr.shape[:2], dtype=bool)
+        if no_segment
+        else segment_foreground(bgr, threshold, segment_channel)
+    )
 
     if depth_image is not None:
         depth = load_depth_image(depth_image, (bgr.shape[1], bgr.shape[0]), invert_depth)
@@ -288,7 +409,7 @@ def reconstruct_photo(
         depth = shape_proxy_depth(mask)
         method = "synthetic shape proxy (progress demo only)"
     elif depth_mode == "model":
-        depth = estimate_model_depth(bgr)
+        depth = estimate_model_depth(bgr, mask)
         method = "Depth Anything V2 Small (pretrained)"
     else:
         raise ValueError(f"unknown depth mode: {depth_mode}")
@@ -315,6 +436,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth-image", type=Path, help="use an existing grayscale depth map")
     parser.add_argument("--invert-depth", action="store_true", help="invert a provided depth image")
     parser.add_argument("--threshold", type=int, help="manual grayscale threshold, 0-255")
+    parser.add_argument(
+        "--segment-channel",
+        choices=("auto", "saturation", "gray"),
+        default="auto",
+        help="channel to segment on; auto picks whichever Otsu separates best",
+    )
     parser.add_argument("--no-segment", action="store_true", help="mesh the complete frame")
     parser.add_argument("--relief", type=float, default=0.35, help="depth exaggeration")
     parser.add_argument("--grid", type=int, default=100, help="approximate samples across the longest image side")
@@ -334,6 +461,7 @@ def main() -> None:
             no_segment=args.no_segment,
             relief=args.relief,
             grid=args.grid,
+            segment_channel=args.segment_channel,
         )
     except (ValueError, RuntimeError, OSError) as exc:
         raise SystemExit(f"ERROR: {exc}") from exc

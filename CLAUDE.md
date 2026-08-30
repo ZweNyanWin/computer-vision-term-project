@@ -20,10 +20,10 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Component | State |
 |---|---|
 | Novel-view renderer (`render3d.py`) | **Done**, tested, measured |
-| Reconstruction (`reconstruct.py`) | **Done** for the shape-proxy path; the learned-depth path is written but has never been run |
+| Reconstruction (`reconstruct.py`) | **Done** for the shape-proxy path. Learned-depth path still never executed — no `torch` locally; run `colab_depth.ipynb` |
 | Progress demo (`run_progress_demo.py`) | **Done** — end-to-end on a synthetic proxy |
 | Unit test (`tests/test_pipeline.py`) | **Passing** |
-| Real frog photographs | **Not taken.** The frog has been bought; capture has not happened |
+| Real frog photographs | **Shoot A done** — 5 photos in `data/`, all segmenting cleanly. Turntable (Shoot B) not started |
 | Multi-view / structure-from-motion | **Not started** |
 | Classifier (`scraper.py`, `training/train.py`) | **Not started.** Carried over from an earlier topic |
 | Workshop station | **Not started** |
@@ -41,8 +41,13 @@ photograph → segmentation → depth → height-field mesh → novel-view rende
 ```
 
 - **Segmentation** — Otsu threshold, morphological open/close, largest connected
-  component, contour fill. Assumes a plain background; that is controlled at
-  capture time rather than solved in software.
+  component, contour fill. Otsu runs on **saturation, not brightness**, chosen
+  automatically by whichever channel it separates more cleanly. A real backdrop
+  is never evenly lit, so its grey levels span a wide range and a global
+  brightness threshold cuts through the background instead of around the object;
+  a neutral backdrop stays desaturated under any illumination while the wood
+  keeps its hue. Still assumes a *plain* (unpatterned) background — that is
+  controlled at capture time rather than solved in software.
 - **Depth** — either a learned monocular network (Depth Anything V2, MiDaS
   fallback) or, for the demo, a synthetic shape proxy. Relative depth only, no
   metric scale.
@@ -74,6 +79,7 @@ photograph → segmentation → depth → height-field mesh → novel-view rende
 reconstruct.py        photo -> segmentation -> depth -> textured OBJ
 render3d.py           OBJ -> novel views / turntable video
 run_progress_demo.py  end-to-end demo on a synthetic proxy; writes outputs/
+colab_depth.ipynb     Depth Anything V2 on Colab; returns the .obj bundle
 tests/test_pipeline.py
 CAPTURE.md            how to photograph the frog (turntable protocol)
 scraper.py            dataset collection for the classifier (not started)
@@ -104,12 +110,25 @@ GPU on the dev machine — run that stage on Colab and bring the `.obj` back.
 - `render3d.py --sweep` defaults to **80°**, not 360. A "turntable" without
   `--sweep 360` renders a small arc.
 - After reconstructing, always open `model3d/<name>_mask.png` and check the
-  segmentation before trusting the mesh. If the background leaked in, use
-  `--threshold N`.
+  segmentation before trusting the mesh. A **plausible `foreground:` percentage
+  is not proof the mask is right** — an inverted mask reported 70.6% on a photo
+  where the frog occupied 31%, because it had latched onto the background. Look
+  at the image. If the background leaked in, try `--segment-channel saturation`
+  (or `gray`), then `--threshold N`.
+- The morphology kernel in `_refine` is deliberately small. Enlarging it closes
+  the hollow resonator cavity, but it also bridges the frog to the table it
+  stands on when the two are similar in tone — tested and rejected.
 - `data/**` is gitignored. Photographs stay local — do not commit ~112 turntable
   images.
 - Y-up mesh vs Y-down image coordinates: `render3d.py` flips this internally. If
   a render comes out mirrored, that is where to look.
+- **Depth convention: larger value = further from the camera.** `build_mesh`
+  writes depth straight into the vertex z and `render3d` sits on the low-z side.
+  Monocular networks predict the opposite (inverse depth, nearest scores
+  highest), so a raw prediction renders the frog inside-out — hollow and
+  unlit. `orient_depth` decides by measuring the object against the backdrop
+  rather than trusting a checkpoint's convention. If a relief looks caved in,
+  check this before anything else.
 
 ## Next step
 

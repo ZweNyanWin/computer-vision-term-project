@@ -35,7 +35,9 @@ python -m unittest discover -s tests -v
 
 ## What is implemented now
 
-- Otsu thresholding, morphology, largest-component selection, and contour fill
+- Otsu thresholding on saturation, morphology, largest-component selection, and
+  contour fill — robust to an unevenly lit backdrop, which defeats a
+  brightness-only threshold
 - temporary analytic depth proxy for an offline demonstration
 - height-field mesh creation
 - textured OBJ and MTL export
@@ -56,10 +58,16 @@ python -m unittest discover -s tests -v
 These pending items match the progress report and do not need to be finished for
 today's checkpoint.
 
-## Use a real frog photo later
+## Learned depth on a real frog photo
 
-First install the optional depth packages. Model weights will be downloaded the
-first time the command runs, so internet access is required then.
+There is no `torch` on the project laptop, so the monocular depth stage runs on
+Colab: open `colab_depth.ipynb`, upload a photograph, and it returns the OBJ
+bundle. The notebook checks the depth orientation before meshing — Depth
+Anything predicts inverse depth, which this pipeline would otherwise turn into a
+hollow relief.
+
+To run it locally instead, install the optional depth packages. Model weights
+download the first time the command runs, so internet access is required then.
 
 ```bash
 python -m pip install -r requirements-depth.txt

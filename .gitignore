@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .DS_Store
 
+# Reference textbook kept locally for lookups. Large, and not ours to publish.
+*.pdf
+
 # Generated locally by the progress demo or the real reconstruction.
 data/**
 model3d/*
