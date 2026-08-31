@@ -84,6 +84,15 @@ def convert(usdz: Path, out_base: Path) -> dict:
     if not np.all(counts == 3):
         raise SystemExit("ERROR: expected a triangulated mesh; found non-triangle faces")
 
+    # Object Capture writes the object upside down relative to this renderer, and
+    # with the opposite triangle winding, so render3d's back-face culling keeps
+    # exactly the faces it should be discarding and draws the inside of the mesh.
+    # Mirroring Y fixes both at once: it stands the frog up, and because a mirror
+    # reverses handedness it also flips the winding. Rotating 180 about X instead
+    # corrects the orientation but preserves the bad winding -- tested, and it
+    # renders the hollow interior.
+    points[:, 1] = -points[:, 1]
+
     st_body = array(text, "texCoord2f[] primvars:st")
     st_index_body = array(text, "int[] primvars:st:indices")
     uvs = floats(st_body, 2) if st_body else None
