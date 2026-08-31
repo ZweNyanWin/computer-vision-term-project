@@ -124,12 +124,21 @@ def segment_foreground(
     """
     if threshold is not None and not 0 <= threshold <= 255:
         raise ValueError("threshold must be between 0 and 255")
-    if channel not in ("auto", "saturation", "gray"):
+    if channel not in ("auto", "saturation", "gray", "colorful"):
         raise ValueError(f"unknown segmentation channel: {channel}")
 
     gray = cv2.GaussianBlur(cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY), (5, 5), 0)
-    saturation = cv2.GaussianBlur(
-        cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)[..., 1], (5, 5), 0
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    saturation = cv2.GaussianBlur(hsv[..., 1], (5, 5), 0)
+
+    # Saturation alone fails when the backdrop is dark: an underexposed cloth
+    # picks up a colour cast and reads as saturated as the wood. Shot from above
+    # the frame holds three regions, not two -- dark backdrop, bright table, and
+    # the object -- and no single-channel threshold separates three things.
+    # Saturation times value does, because only the object is both saturated and
+    # bright: the backdrop is saturated but dark, the table bright but grey.
+    colorful = cv2.GaussianBlur(
+        (hsv[..., 1].astype(np.float32) * hsv[..., 2] / 255.0).astype(np.uint8), (5, 5), 0
     )
 
     # A manual threshold is a grey level by definition, so it pins the channel.
@@ -137,9 +146,11 @@ def segment_foreground(
         return _mask_from_channel(gray, threshold) > 0
     if channel == "saturation":
         return _mask_from_channel(saturation) > 0
+    if channel == "colorful":
+        return _mask_from_channel(colorful) > 0
 
     ordered = sorted(
-        (("saturation", saturation), ("gray", gray)),
+        (("saturation", saturation), ("colorful", colorful), ("gray", gray)),
         key=lambda item: _otsu_separability(item[1]),
         reverse=True,
     )
@@ -438,7 +449,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threshold", type=int, help="manual grayscale threshold, 0-255")
     parser.add_argument(
         "--segment-channel",
-        choices=("auto", "saturation", "gray"),
+        choices=("auto", "saturation", "colorful", "gray"),
         default="auto",
         help="channel to segment on; auto picks whichever Otsu separates best",
     )

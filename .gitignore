@@ -27,3 +27,4 @@ output/figures_cache/
 recon/input_*/
 recon/*.usdz
 recon/photogrammetry
+recon/input_combined/
