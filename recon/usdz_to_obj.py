@@ -84,19 +84,30 @@ def convert(usdz: Path, out_base: Path) -> dict:
     if not np.all(counts == 3):
         raise SystemExit("ERROR: expected a triangulated mesh; found non-triangle faces")
 
-    # Object Capture writes the object upside down relative to this renderer, and
-    # with the opposite triangle winding, so render3d's back-face culling keeps
-    # exactly the faces it should be discarding and draws the inside of the mesh.
-    # Mirroring Y fixes both at once: it stands the frog up, and because a mirror
-    # reverses handedness it also flips the winding. Rotating 180 about X instead
-    # corrects the orientation but preserves the bad winding -- tested, and it
-    # renders the hollow interior.
-    points[:, 1] = -points[:, 1]
-
+    # Object Capture is already Y-up, with the base of the object at Y minimum --
+    # confirmed by footprint: the broad end sits at the low-Y end. Leave the
+    # geometry alone.
+    #
+    # The winding is the only thing that differs. RealityKit orders each triangle
+    # opposite to what render3d's back-face culling expects, so the renderer
+    # discards precisely the faces it should keep and draws the mesh interior:
+    # the object looks hollow and unlit rather than solid. Reversing each
+    # triangle fixes it without touching a single coordinate.
+    #
+    # Mirroring Y also flips the winding, and was tried first -- but a mirror
+    # reverses handedness, so it stands the object on its head to fix the faces.
+    # Reversing the winding directly is the change that is actually wanted.
     st_body = array(text, "texCoord2f[] primvars:st")
     st_index_body = array(text, "int[] primvars:st:indices")
     uvs = floats(st_body, 2) if st_body else None
     st_indices = integers(st_index_body) if st_index_body else None
+
+    # 'st' is faceVarying -- one UV per triangle corner -- so reversing the
+    # corners of a triangle must reverse its texture coordinates in step, or the
+    # texture ends up mirrored on every face.
+    face_indices = face_indices.reshape(-1, 3)[:, ::-1].ravel()
+    if st_indices is not None and len(st_indices) == len(face_indices):
+        st_indices = st_indices.reshape(-1, 3)[:, ::-1].ravel()
 
     # 'st' is faceVarying: one UV per face corner, so it is indexed by corner
     # position rather than by vertex. Written out in that same order.
