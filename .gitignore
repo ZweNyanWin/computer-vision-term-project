@@ -28,3 +28,6 @@ recon/input_*/
 recon/*.usdz
 recon/photogrammetry
 recon/input_combined/
+
+# Word lock files, created while a document is open.
+~$*
