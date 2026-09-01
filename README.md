@@ -1,33 +1,31 @@
 # Thai Wooden Frog — Image-Based 3D Rendering
 
-This folder contains the runnable prototype described in
-`CSX4213_Progress_Report_3D_Rendering.docx`.
+Novel-view synthesis of a Thai wooden frog (*kob mai*) from photographs, built on
+OpenCV and NumPy with no external 3D renderer.
 
-The real wooden frog has not been purchased or photographed yet. For today's
-progress check, the code therefore creates a clearly labelled synthetic wooden
-proxy and runs the complete downstream pipeline. It does **not** claim that the
-temporary depth map or output is a result for the Thai wooden frog.
+The physical frog has been photographed: five hero shots plus a closed 36-frame
+turntable ring, all 36 of which segment cleanly. Every number quoted below comes
+from those photographs, scored against frames the pipeline never saw.
 
-## Run today's progress demo
+`CLAUDE.md` is the authority on current state, what each result does and does not
+support, and the constraints on this codebase. Read it before changing anything.
+
+## Run the offline demo
 
 ```bash
-cd "/Users/zwenyanwin/Desktop/Computer Vision/Term_Project"
 conda activate cv
 python run_progress_demo.py
 ```
 
-The main image to show is:
+This runs the complete pipeline on a clearly labelled **synthetic** proxy, so the
+downstream stages can be shown without any photographs present. It is a smoke
+test, not a result — nothing it prints is a measurement of the frog.
 
 ```text
 outputs/progress_contact_sheet.png
 ```
 
-It shows six checkpoint stages: synthetic input, segmentation mask, temporary
-depth proxy, front rendering, and two novel views. The terminal also prints the
-vertex count, triangle count, and rendering time. A short animation is written
-to `outputs/progress_novel_views.mp4`. No notebook (`.ipynb`) is required.
-
-Run the automated check if needed:
+Automated check:
 
 ```bash
 python -m unittest discover -s tests -v
@@ -40,48 +38,51 @@ python src/evaluate.py --frames data --every 4 --exclude 300 --depth-mode model
 python src/make_figures.py        # writes figures/
 ```
 
-Held-out scoring against real photographs the pipeline never saw, with a
-frame-switching baseline alongside so the gain is attributable. Numbers and the
-two caveats that go with them are in `CLAUDE.md`; the CSVs in `output/metrics/`
-are the only source for figures quoted in the report.
+Frames are withheld from the ring, each held-out angle is rendered from the
+nearest frame the pipeline *did* see, and both that render and the nearest
+captured photograph are scored against the withheld one. The frame-switching
+baseline is the point: a render that cannot beat "show the closest photograph"
+has not earned its reconstruction stage.
 
-## What is implemented now
+Two claims are supported, and no more:
 
-- Otsu thresholding on saturation, morphology, largest-component selection, and
-  contour fill — robust to an unevenly lit backdrop, which defeats a
+- **Learned depth beats the shape proxy** — mean render quality **+1.31 dB**,
+  consistent across every spacing tested.
+- **At 60° spacing the render is structurally closer to the withheld photograph
+  than frame-switching is** — ΔSSIM **+0.024**, 95% CI [+0.014, +0.035], n=30.
+
+**No PSNR difference is significant at any spacing**; every interval spans zero.
+Frame 300° is excluded from every run because the operator's hand is in the shot.
+The CSVs in `output/` are the only source for figures quoted in the report — see
+`CLAUDE.md` for why intervals are reported rather than differences of means.
+
+## What is implemented
+
+- Otsu thresholding on **saturation**, morphology, largest-component selection,
+  and contour fill — a real backdrop is never evenly lit, which defeats a
   brightness-only threshold
-- temporary analytic depth proxy for an offline demonstration
-- height-field mesh creation
-- textured OBJ and MTL export
-- pinhole projection using `x = K[R|t]X`
-- back-face culling and painter's depth ordering
-- affine texture mapping for every visible triangle
-- Lambertian shading
-- progress contact sheet and JSON performance metrics
+- learned monocular depth (Depth Anything V2 Small) and an analytic shape proxy
+- depth orientation check, since the network predicts *inverse* depth and a raw
+  prediction renders the frog hollow
+- height-field mesh creation, textured OBJ and MTL export
+- pinhole projection `x = K[R|t]X`, back-face culling, painter's depth ordering,
+  affine texture mapping per visible triangle, Lambertian shading
+- held-out PSNR/SSIM evaluation against a frame-switching baseline
+- closed-surface reconstruction via Apple Object Capture — 25,008 vertices,
+  49,999 triangles
 
 ## What remains pending
 
-- buying and photographing the real Thai wooden frog
-- running learned monocular depth on that real photograph
-- capturing the multi-view turntable image set
-- structure-from-motion / complete closed-surface reconstruction
-- the optional classifier and workshop interface
-
-These pending items match the progress report and do not need to be finished for
-today's checkpoint.
+- turntable rings 2 and 3, at ~30° and ~60° camera elevation. Every result so
+  far comes from a single eye-level ring
+- the optional classifier and the workshop interface
 
 ## Learned depth on a real frog photo
 
 Runs locally. Depth Anything V2 Small is a 25M-parameter model, so it needs no
-GPU — on Apple silicon it uses MPS and takes about three seconds a frame. Install
-the optional depth packages; weights download on first use, so that run needs
-internet.
-
-Depth Anything predicts *inverse* depth, which this pipeline would otherwise turn
-into a hollow relief. `orient_depth` catches that by measuring the object against
-its backdrop, and prints when it flips.
-
-`colab_depth.ipynb` does the same thing on Colab, for a machine without `torch`.
+GPU — on Apple silicon it uses MPS and takes about three seconds a frame. Weights
+download on first use, so that run needs internet. `colab_depth.ipynb` does the
+same thing on Colab for a machine without `torch`.
 
 ```bash
 python -m pip install -r requirements-depth.txt
@@ -92,7 +93,7 @@ python reconstruct.py data/frog_front.jpg \
   --grid 120
 ```
 
-Render a safe novel-view arc for the single-image relief:
+Render a novel-view arc for the single-image relief:
 
 ```bash
 python render3d.py model3d/frog.obj \
@@ -103,18 +104,27 @@ python render3d.py model3d/frog.obj \
   --out outputs/frog
 ```
 
-A single photograph produces only a front-facing relief, so a narrow viewing arc
-is honest. A full 360-degree turntable should be rendered only after the later
-multi-view reconstruction creates a complete surface.
+A single photograph produces only a front-facing relief, so a narrow arc is
+honest. Render a full 360° turn only from the Object Capture mesh, which is a
+closed surface.
 
 ## File guide
 
 ```text
-run_progress_demo.py   one-command offline checkpoint
-reconstruct.py         segmentation, depth preparation, mesh, OBJ export
+run_progress_demo.py   one-command offline smoke test
+reconstruct.py         segmentation, depth, mesh, OBJ export
 render3d.py            novel-view renderer
-tests/                 small offline verification
-data/                  source photographs
+colab_depth.ipynb      learned depth on Colab
+src/evaluate.py        hold-out scoring against withheld photographs
+src/metrics.py         PSNR and SSIM on NumPy/OpenCV
+src/make_figures.py    writes figures/ from the CSVs
+recon/                 Apple Object Capture: Swift driver, USDZ to OBJ, scoring
+tests/                 offline verification
+data/                  source photographs (gitignored)
 model3d/               OBJ, MTL, texture, mask, and depth outputs
-outputs/               rendered views, contact sheet, and metrics
+output/                hold-out metric CSVs - the source for report figures
+outputs/               contact sheet and demo metrics
+figures/               report figures
+docs/                  progress reports and the presentation script
+CAPTURE.md             photography protocol
 ```
