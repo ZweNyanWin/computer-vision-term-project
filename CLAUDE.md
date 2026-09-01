@@ -28,6 +28,7 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Hold-out evaluation (`src/evaluate.py`) | **Done and run** — full-ring runs are in `output/full_e*/` |
 | Explicit reconstruction | **Done** — Apple Object Capture accepted all 45 ring/elevated photographs; 25,008 vertices, 49,999 triangles |
 | Custom multi-view / structure-from-motion | **Not started** — Object Capture is used only as a black-box comparison |
+| Neural multi-view reconstruction | **Environment ready, capture pending** — MLX3D 0.3.0 and COLMAP 4.1.1 are installed on the M1 Pro; no Gaussian has been trained |
 | Classifier (`scraper.py`, `training/train.py`) | **Not started.** Carried over from an earlier topic |
 | Workshop station | **Not started** |
 
@@ -87,6 +88,7 @@ src/evaluate.py       hold-out scoring against withheld photographs
 src/metrics.py        PSNR and SSIM on NumPy/OpenCV, no scikit-image
 tests/test_pipeline.py
 CAPTURE.md            how to photograph the frog (turntable protocol)
+NEURAL_CAPTURE.md     fixed-frog, moving-camera protocol for COLMAP + MLX3D
 scraper.py            dataset collection for the classifier (not started)
 training/train.py     MobileNetV2 transfer learning (not started)
 docs/                 progress report (.docx) and the presentation script
@@ -199,10 +201,16 @@ machine without `torch`.
 
 ## Next step
 
-Build the workshop station, the remaining deliverable. The current renderer is
-suited to offline animation rather than live interaction, so the station needs
-mesh reduction, a faster rasterisation path, or a deliberately pre-rendered
-interaction.
+Capture the stationary-frog, moving-camera dataset described in
+`NEURAL_CAPTURE.md`, then run a fast, low-memory MLX3D diagnostic on the M1 Pro.
+The existing fixed-camera, rotating-frog ring is still valid for the current
+baselines, but it must not be used for COLMAP/MLX3D: the stationary background
+and rotating subject imply contradictory camera motion.
+
+Only after the diagnostic registers about 90% of the images with coherent camera
+paths should longer Gaussian optimization, held-out evaluation, and the final
+interactive workshop viewer be built. MLX3D's training-view score is not a
+held-out result.
 
 Full closed rings at additional camera elevations remain an optional extension
 for hold-out evaluation. The 9 elevated photographs already helped Apple Object

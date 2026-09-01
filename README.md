@@ -76,10 +76,27 @@ The CSVs in `output/` are the only source for figures quoted in the report — s
 
 ## What remains pending
 
-- the workshop interface — the remaining deliverable
+- multi-view Gaussian Splatting with MLX3D, followed by the interactive workshop
+  interface
 - optional extensions: full closed rings at additional camera elevations and
   the classifier. Nine elevated photographs already support the explicit
   reconstruction, but the hold-out results come from the eye-level ring
+
+## Neural reconstruction environment
+
+MLX3D 0.3.0 and COLMAP 4.1.1 are the pinned Apple Silicon path for the neural
+extension. Use Python 3.12 and follow `NEURAL_CAPTURE.md`; the frog stays fixed
+while the camera moves. The existing rotating-frog ring remains a baseline and
+is not valid input for neural structure-from-motion.
+
+```bash
+/opt/homebrew/bin/python3.12 -m venv .venv-mlx3d
+source .venv-mlx3d/bin/activate
+python -m pip install -r requirements-mlx3d.txt
+```
+
+Do not report a Gaussian result until the new photographs have passed the fast
+registration and reconstruction gate in the capture protocol.
 
 ## Learned depth on a real frog photo
 
@@ -141,4 +158,6 @@ docs/demo_script.md    current four-minute demonstration script
 docs/presentation_script.md  archived pre-capture presentation script
 docs/*.docx            progress reports
 CAPTURE.md             photography protocol
+NEURAL_CAPTURE.md      fixed-frog, moving-camera MLX3D protocol
+requirements-mlx3d.txt pinned Apple Silicon neural environment
 ```

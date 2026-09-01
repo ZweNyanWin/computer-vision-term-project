@@ -1,0 +1,3 @@
+# Apple Silicon neural reconstruction environment (Python 3.12).
+# The capture extra installs OpenCV and SciPy for the image-to-splat pipeline.
+mlx3d[capture]==0.3.0
