@@ -2,6 +2,10 @@
 
 A walkthrough of the report: the subject, the method, and current status.
 
+> **Archived pre-capture script.** It describes the earlier checkpoint before
+> the frog photographs and learned-depth evaluation existed. For the current
+> 31 August checkpoint and measured results, use [`demo_script.md`](demo_script.md).
+
 ---
 
 ## 0:00 – 0:40 · Subject

@@ -22,8 +22,8 @@ them is like for like even though the absolute values are conservative.
 
 Usage
 -----
-    python src/evaluate.py --frames data --every 2 --out output/metrics
-    python src/evaluate.py --frames data --every 2 --exclude 300
+    python src/evaluate.py --frames data --every 2 --depth-mode model --out output/full_e2
+    python src/evaluate.py --frames data --every 4 --depth-mode model --out output/full_e4
 """
 
 from __future__ import annotations

@@ -34,7 +34,7 @@ python -m unittest discover -s tests -v
 ## Measured results
 
 ```bash
-python src/evaluate.py --frames data --every 4 --exclude 300 --depth-mode model
+python src/evaluate.py --frames data --every 4 --depth-mode model
 python src/make_figures.py        # writes figures/
 ```
 
@@ -46,13 +46,16 @@ has not earned its reconstruction stage.
 
 Two claims are supported, and no more:
 
-- **Learned depth beats the shape proxy** — mean render quality **+1.31 dB**,
-  consistent across every spacing tested.
+- **Learned depth improves on the shape proxy where the relief still has useful
+  geometry** — render quality is **+1.66 dB at 20°** and **+1.64 dB at 40°**,
+  but falls to **−0.10 dB at 90°**, where the relief has little of the object
+  left to show.
 - **At 60° spacing the render is structurally closer to the withheld photograph
   than frame-switching is** — ΔSSIM **+0.024**, 95% CI [+0.014, +0.035], n=30.
 
 **No PSNR difference is significant at any spacing**; every interval spans zero.
-Frame 300° is excluded from every run because the operator's hand is in the shot.
+Frame 300° was re-shot after the operator's hand entered the original; the
+replacement is included throughout the full 36-frame results.
 The CSVs in `output/` are the only source for figures quoted in the report — see
 `CLAUDE.md` for why intervals are reported rather than differences of means.
 
@@ -73,9 +76,10 @@ The CSVs in `output/` are the only source for figures quoted in the report — s
 
 ## What remains pending
 
-- turntable rings 2 and 3, at ~30° and ~60° camera elevation. Every result so
-  far comes from a single eye-level ring
-- the optional classifier and the workshop interface
+- the workshop interface — the remaining deliverable
+- optional extensions: full closed rings at additional camera elevations and
+  the classifier. Nine elevated photographs already support the explicit
+  reconstruction, but the hold-out results come from the eye-level ring
 
 ## Learned depth on a real frog photo
 
@@ -86,11 +90,19 @@ same thing on Colab for a machine without `torch`.
 
 ```bash
 python -m pip install -r requirements-depth.txt
-python reconstruct.py data/frog_front.jpg \
+python reconstruct.py data/90.jpeg \
   --depth-mode model \
   --out model3d/frog \
   --relief 0.35 \
   --grid 120
+```
+
+For the presentation demo, warm the cache once while online; normal demo runs
+then use the cache without making network requests:
+
+```bash
+DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3
+./demo.sh
 ```
 
 Render a novel-view arc for the single-image relief:
@@ -125,6 +137,8 @@ model3d/               OBJ, MTL, texture, mask, and depth outputs
 output/                hold-out metric CSVs - the source for report figures
 outputs/               contact sheet and demo metrics
 figures/               report figures
-docs/                  progress reports and the presentation script
+docs/demo_script.md    current four-minute demonstration script
+docs/presentation_script.md  archived pre-capture presentation script
+docs/*.docx            progress reports
 CAPTURE.md             photography protocol
 ```

@@ -4,9 +4,11 @@ Run `./demo.sh` and press Enter between steps. Total compute is about 16 seconds
 the rest of the time is talking. Every slow stage was run beforehand and is read
 back from the file it wrote, and the script prints the command that produced it.
 
-**Before you start:** terminal font large, `demo.sh` already `cd`-ed into the
-project, and run it once through so the depth model's weights are cached. On a
-cold cache step 3 downloads about 100 MB.
+**Before you start:** terminal font large and `demo.sh` already `cd`-ed into the
+project. While online, warm the depth-model cache once with
+`DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3`; a cold cache downloads about 100 MB. The
+normal demo runs step 3 in cache-only mode so a poor venue connection cannot
+stall it with network retries. Then run the complete demo once through.
 
 ---
 
@@ -87,10 +89,10 @@ only caught it by looking at the mask.
 
 ## 2:40 – 3:20 · Why one photograph is not enough
 
-**Run step 6.** → relief keeps 0.4% behind; mesh keeps 43.1%.
+**Run step 6.** → relief keeps 0.8% behind; mesh keeps 43.1%.
 
 > "Single-image reconstruction gives a relief, not a solid. Swing the camera
-> behind it and almost nothing survives — under half a per cent of its triangles.
+> behind it and almost nothing survives — under one per cent of its triangles.
 >
 > The same photographs through Apple's Object Capture give a closed surface:
 > twenty-five thousand vertices, eighty seconds, no GPU and no cloud. Behind it,
@@ -153,4 +155,4 @@ the closing question.
 **"Can you compare the mesh's score with the relief's?"**
 > No, and we say so in the report. Every photograph scored against the mesh also
 > went into building it, so it measures fit rather than prediction. The
-> comparison we can make is coverage: 43 per cent against 0.4.
+> comparison we can make is coverage: 43.1 per cent against 0.8.

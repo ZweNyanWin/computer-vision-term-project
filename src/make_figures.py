@@ -35,7 +35,20 @@ MODEL_C = "#A9682F"
 
 def figure_crossover(path: Path) -> None:
     """Gain over the frame-switching baseline, against capture spacing."""
-    rows = list(csv.DictReader(open(PROJECT_ROOT / "output/metrics/depth_comparison.csv")))
+    rows = []
+    for every in (2, 4, 6, 9):
+        proxy = next(csv.DictReader(open(PROJECT_ROOT / f"output/metrics_e{every}/summary.csv")))
+        model = next(csv.DictReader(open(PROJECT_ROOT / f"output/full_e{every}/summary.csv")))
+        baseline_psnr = float(model["psnr_baseline_mean_db"])
+        baseline_ssim = float(model["ssim_baseline_mean"])
+        rows.append({
+            "captured_spacing_deg": model["captured_spacing_deg"],
+            "psnr_gain_proxy_db": float(proxy["psnr_render_mean_db"]) - baseline_psnr,
+            "psnr_gain_model_db": float(model["psnr_render_mean_db"]) - baseline_psnr,
+            "ssim_render_proxy": proxy["ssim_render_mean"],
+            "ssim_render_model": model["ssim_render_mean"],
+            "ssim_baseline": baseline_ssim,
+        })
     x = [float(r["captured_spacing_deg"]) for r in rows]
     series = (
         ("psnr_gain_proxy_db", "psnr_gain_model_db", "PSNR gain (dB)"),
@@ -63,7 +76,7 @@ def figure_crossover(path: Path) -> None:
     axes[0].annotate("above zero:\nreconstruction wins", xy=(60, 0.13), xytext=(42, -1.0),
                      fontsize=8, color=INK,
                      arrowprops=dict(arrowstyle="->", color=INK, lw=.9))
-    fig.suptitle("Reconstruction only beats showing the nearest photograph in a band around 40–60°",
+    fig.suptitle("Reconstruction relative to frame-switching, by capture spacing",
                  fontsize=11.5, color=INK)
     fig.tight_layout()
     fig.savefig(path, dpi=160, bbox_inches="tight")
@@ -74,7 +87,6 @@ def figure_crossover(path: Path) -> None:
 def figure_qualitative(path: Path, angles=(50, 110, 170, 230), every: int = 4, size: int = 240) -> None:
     """What the score actually compares: truth, render, and baseline."""
     frames = {int(p.stem): p for p in (PROJECT_ROOT / "data").glob("*.jpeg") if p.stem.isdigit()}
-    frames.pop(300, None)
     captured = sorted(frames)[::every]
     cache = PROJECT_ROOT / "output/model_e4/meshes"
 

@@ -3,6 +3,8 @@
 #
 #   ./demo.sh          run every step, pausing between them
 #   ./demo.sh 3        run step 3 only
+#   DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3
+#                      warm the model cache once while online
 #
 # Each step is quick enough to run live. Nothing here trains or reconstructs
 # from scratch: the slow stages (the hold-out sweep, photogrammetry) are read
@@ -54,7 +56,12 @@ fi
 if run_step 3; then
 say "3. Learned depth and a textured mesh, from one photograph"
 note "Depth Anything V2 Small. No GPU: about three seconds on this laptop."
-python3 reconstruct.py data/90.jpeg --depth-mode model --out model3d/demo_live --relief 0.42 --grid 120
+if [ "${DEMO_ALLOW_DOWNLOAD:-0}" = "1" ]; then
+    python3 reconstruct.py data/90.jpeg --depth-mode model --out model3d/demo_live --relief 0.42 --grid 120
+else
+    HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+        python3 reconstruct.py data/90.jpeg --depth-mode model --out model3d/demo_live --relief 0.42 --grid 120
+fi
 pause
 fi
 
@@ -99,7 +106,7 @@ import sys; sys.path.insert(0, '.')
 import cv2
 from pathlib import Path
 from render3d import load_obj, normalize_mesh, render_frame
-for tag, p in (('relief, 1 photograph ', 'model3d/demo_live.obj'),
+for tag, p in (('relief, 1 photograph ', 'model3d/frog_real.obj'),
                ('mesh, 45 photographs ', 'model3d/frog_combined.obj')):
     v, uv, f, tp = load_obj(Path(p)); V = normalize_mesh(v)
     tex = cv2.imread(str(tp)) if tp else None

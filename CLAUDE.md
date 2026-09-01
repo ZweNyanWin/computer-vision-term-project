@@ -22,10 +22,12 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Novel-view renderer (`render3d.py`) | **Done**, tested, measured |
 | Reconstruction (`reconstruct.py`) | **Done**, both paths. Learned depth runs locally — `torch` is installed and Depth Anything V2 Small uses MPS, ~3 s a frame |
 | Progress demo (`run_progress_demo.py`) | **Done** — end-to-end on a synthetic proxy |
+| Presentation demo (`demo.sh`) | **Done** — seven-step live walkthrough on the real frog; learned depth runs cache-only after warm-up |
 | Unit test (`tests/test_pipeline.py`) | **Passing** |
-| Real frog photographs | **Both shoots done** — 5 hero shots plus a closed 36-frame turntable ring in `data/`, all 36 segmenting cleanly |
-| Hold-out evaluation (`src/evaluate.py`) | **Done and run** — see `output/metrics/` |
-| Multi-view / structure-from-motion | **Not started** |
+| Real frog photographs | **Both shoots done** — 5 hero shots, a closed 36-frame turntable ring, and 9 elevated photographs in `data/`; all 36 ring frames segment cleanly |
+| Hold-out evaluation (`src/evaluate.py`) | **Done and run** — full-ring runs are in `output/full_e*/` |
+| Explicit reconstruction | **Done** — Apple Object Capture accepted all 45 ring/elevated photographs; 25,008 vertices, 49,999 triangles |
+| Custom multi-view / structure-from-motion | **Not started** — Object Capture is used only as a black-box comparison |
 | Classifier (`scraper.py`, `training/train.py`) | **Not started.** Carried over from an earlier topic |
 | Workshop station | **Not started** |
 
@@ -89,7 +91,8 @@ scraper.py            dataset collection for the classifier (not started)
 training/train.py     MobileNetV2 transfer learning (not started)
 docs/                 progress report (.docx) and the presentation script
 outputs/              contact sheet + metrics from the demo (evidence)
-output/metrics/       hold-out CSVs — the only source for numbers in the paper
+output/full_e*/       full-ring hold-out CSVs — the source for Table III
+output/metrics/       earlier sweep and figure caches; check exclusions before reuse
 data/                 photographs — gitignored, stays local
 ```
 
@@ -103,8 +106,10 @@ earned its reconstruction stage.
 
 ### Two claims are supported. Do not write more than these.
 
-**1. Learned depth beats the shape proxy, decisively.** Mean render quality rises
-+1.31 dB across every spacing tested. Large, consistent, not marginal.
+**1. Learned depth improves on the shape proxy only while the relief still has
+useful geometry.** Render quality rises +1.66 dB at 20° spacing and +1.64 dB at
+40°, but falls to −0.10 dB at 90°, where the relief has little of the object
+left to show. Do not describe this gain as consistent across spacings.
 
 **2. At 60° spacing the render is structurally closer to the withheld photograph
 than frame-switching is:** ΔSSIM **+0.024, 95% CI [+0.014, +0.035]**, n=30,
@@ -138,11 +143,12 @@ sharp pixels and the baseline is a *real photograph* at the wrong angle, while
 SSIM compares structure and the render is at the right angle. For novel-view
 synthesis, structure is the property that matters.
 
-Every number here comes from one eye-level ring. Nothing has looked down on the
-frog yet.
+Every hold-out number here comes from one eye-level ring. Nine elevated
+photographs were used by the explicit reconstruction, but they are not a closed
+ring and do not enter the hold-out evaluation.
 
-Frame 300° is excluded from every run — the operator's hand is in the shot. Say
-so in the paper rather than quietly dropping it.
+Frame 300° was re-shot after the operator's hand entered the original. The
+replacement is included throughout the full 36-frame results.
 
 ## Running it
 
@@ -152,13 +158,20 @@ pip install -r requirements.txt          # numpy + opencv only
 python run_progress_demo.py              # regenerates outputs/
 python tests/test_pipeline.py            # unittest, not pytest
 
-# once real photos exist
-python reconstruct.py data/frog/single/front.jpg --out model3d/frog
-python render3d.py model3d/frog.obj --frames 36 --sweep 360 --video --out outputs/frog
+# real single-image relief
+python reconstruct.py data/90.jpeg --depth-mode model --out model3d/frog
+python render3d.py model3d/frog.obj --frames 9 --sweep 80 --video --out outputs/frog
+
+# full turntable only from the closed Object Capture mesh
+python render3d.py model3d/frog_combined.obj --frames 36 --sweep 360 --video --out outputs/frog_3d
 ```
 
-Learned depth needs `requirements-depth.txt` (torch + transformers). There is no
-GPU on the dev machine — run that stage on Colab and bring the `.obj` back.
+Learned depth needs `requirements-depth.txt` (torch + transformers). It runs
+locally on Apple silicon through MPS in about three seconds per frame. The first
+run downloads about 100 MB; warm the presentation cache with
+`DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3`. Normal `demo.sh` runs cache-only so a poor
+venue connection cannot stall it. `colab_depth.ipynb` remains a fallback for a
+machine without `torch`.
 
 ## Gotchas
 
@@ -173,8 +186,7 @@ GPU on the dev machine — run that stage on Colab and bring the `.obj` back.
 - The morphology kernel in `_refine` is deliberately small. Enlarging it closes
   the hollow resonator cavity, but it also bridges the frog to the table it
   stands on when the two are similar in tone — tested and rejected.
-- `data/**` is gitignored. Photographs stay local — do not commit ~112 turntable
-  images.
+- `data/**` is gitignored. The source photographs stay local; do not commit them.
 - Y-up mesh vs Y-down image coordinates: `render3d.py` flips this internally. If
   a render comes out mirrored, that is where to look.
 - **Depth convention: larger value = further from the camera.** `build_mesh`
@@ -187,15 +199,17 @@ GPU on the dev machine — run that stage on Colab and bring the `.obj` back.
 
 ## Next step
 
-Shoot rings 2 and 3, at ~30° and ~60° camera elevation. Every result so far
-comes from a single eye-level ring, and the evaluation has now put a number on
-what that costs: past ~60° of spacing the relief has nothing left to show. A
-comparable project reconstructed its subject from one eye-level ring and the
-roof came back as a hole for exactly this reason.
+Build the workshop station, the remaining deliverable. The current renderer is
+suited to offline animation rather than live interaction, so the station needs
+mesh reduction, a faster rasterisation path, or a deliberately pre-rendered
+interaction.
 
-After that, multi-view reconstruction (COLMAP or Apple Object Capture) becomes
-possible, and the same `src/evaluate.py` scores it against the same withheld
-photographs — so the mesh and the relief compare on one footing.
+Full closed rings at additional camera elevations remain an optional extension
+for hold-out evaluation. The 9 elevated photographs already helped Apple Object
+Capture produce a closed mesh, but every current hold-out number comes from the
+eye-level ring. Do not compare that mesh against those photographs as if it were
+prediction: all 45 photographs went into building it, so such a score measures
+fit instead.
 
 ## Why this subject
 
