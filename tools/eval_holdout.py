@@ -62,6 +62,30 @@ def to_bgr_u8(arr) -> np.ndarray:
     return cv2.cvtColor((a * 255.0 + 0.5).astype(np.uint8), cv2.COLOR_RGB2BGR)
 
 
+def sheet_crop(box, shape, pad_frac: float, aspect: float = 4 / 3):
+    """A window around the object for the contact sheet, or None to keep the frame.
+
+    Presentation only. The scores are computed on the whole photograph; this just
+    decides what the sheet shows. Cropping matters because the frames are of a
+    room in someone's home and the sheets are committed to a public repository,
+    while the part that demonstrates the reconstruction is the frog. The same
+    window is applied to all three columns, so the comparison stays aligned.
+    """
+    if box is None:
+        return None
+    h, w = shape[:2]
+    x0, y0, x1, y1 = box
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    bw, bh = (x1 - x0) * (1 + 2 * pad_frac), (y1 - y0) * (1 + 2 * pad_frac)
+    bw, bh = (max(bw, bh * aspect), max(bh, bw / aspect))
+    bw, bh = min(bw, w), min(bh, h)
+    bw, bh = (min(bw, bh * aspect), min(bh, bw / aspect))
+    bw, bh = int(round(bw)), int(round(bh))
+    cx0 = int(min(max(0, round(cx - bw / 2)), w - bw))
+    cy0 = int(min(max(0, round(cy - bh / 2)), h - bh))
+    return cx0, cy0, cx0 + bw, cy0 + bh
+
+
 def ci95(values: np.ndarray) -> tuple[float, float, float, float]:
     """Mean, half-width, t statistic and p-value for a paired difference."""
     n = len(values)
@@ -90,6 +114,12 @@ def main() -> int:
     ap.add_argument("--out", default="output/neural")
     ap.add_argument("--downscale", type=int, required=True, help="must match the training downscale")
     ap.add_argument("--contact-sheet", action="store_true")
+    ap.add_argument(
+        "--sheet-pad", type=float, default=0.45,
+        help="context around the object in the contact sheet, as a fraction of the "
+             "object box; 0 crops to the box itself. Presentation only - scores are "
+             "always computed on the whole photograph",
+    )
     ap.add_argument(
         "--object-radius", type=float, default=None,
         help="radius about the scene median bounding the object, in COLMAP units; "
@@ -328,13 +358,20 @@ def main() -> int:
         tiles = []
         for name, gt, rendered, near, rec, box in sheet:
             h = 240
+            crop = sheet_crop(box, gt.shape, args.sheet_pad)
+            cx0, cy0, cx1, cy1 = crop if crop else (0, 0, gt.shape[1], gt.shape[0])
+
             def fit(img, label, box=box):
-                s_ = h / img.shape[0]
-                scaled = cv2.resize(img, (int(img.shape[1] * s_), h))
+                view = img[cy0:cy1, cx0:cx1]
+                s_ = h / view.shape[0]
+                scaled = cv2.resize(view, (max(1, int(view.shape[1] * s_)), h))
                 if box is not None:
-                    # The region the secondary diagnostic scores, so the reader can
-                    # see which part of the frame that number is about.
-                    x0, y0, x1, y1 = (int(round(v * s_)) for v in box)
+                    # The region the secondary diagnostic scores, in crop coords, so
+                    # the reader can see which pixels that number is about.
+                    x0, y0, x1, y1 = (
+                        int(round((box[0] - cx0) * s_)), int(round((box[1] - cy0) * s_)),
+                        int(round((box[2] - cx0) * s_)), int(round((box[3] - cy0) * s_)),
+                    )
                     cv2.rectangle(scaled, (x0, y0), (x1, y1), (0, 235, 255), 1)
                 cv2.rectangle(scaled, (0, 0), (scaled.shape[1] - 1, 18), (0, 0, 0), -1)
                 cv2.putText(scaled, label, (4, 13), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
@@ -342,16 +379,22 @@ def main() -> int:
             tiles.append(
                 np.hstack([
                     fit(gt, f"{name} withheld photo"),
-                    fit(rendered, f"splat @ same pose  {rec['psnr_render']:.1f}dB"
+                    fit(rendered, f"splat @ same pose  full {rec['psnr_render']:.1f}dB"
                         + (f" | obj {rec['psnr_render_obj']:.1f}dB" if 'psnr_render_obj' in rec else "")),
-                    fit(near, f"baseline {rec['baseline_name']} {rec['baseline_sep_deg']:.0f}deg  {rec['psnr_baseline']:.1f}dB"
+                    fit(near, f"baseline {rec['baseline_name']} {rec['baseline_sep_deg']:.0f}deg  full {rec['psnr_baseline']:.1f}dB"
                         + (f" | obj {rec['psnr_baseline_obj']:.1f}dB" if 'psnr_baseline_obj' in rec else "")),
                 ])
             )
         width = max(t.shape[1] for t in tiles)
         tiles = [np.pad(t, ((0, 0), (0, width - t.shape[1]), (0, 0))) for t in tiles]
+        banner = np.zeros((22, width, 3), np.uint8)
+        cv2.putText(
+            banner,
+            "cropped to the object; dB labels are FULL-FRAME scores over the whole photograph",
+            (4, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 235, 255), 1, cv2.LINE_AA,
+        )
         path = out / "holdout_contact_sheet.jpg"
-        cv2.imwrite(str(path), np.vstack(tiles), [cv2.IMWRITE_JPEG_QUALITY, 92])
+        cv2.imwrite(str(path), np.vstack([banner] + tiles), [cv2.IMWRITE_JPEG_QUALITY, 92])
         print(f"wrote {path}")
     return 0
 

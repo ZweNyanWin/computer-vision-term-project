@@ -101,6 +101,8 @@ tools/report_facts.py            the table NEURAL_CAPTURE.md asks the report for
 config/neural_manifest.csv       every source photo, its optics and SHA-256
 config/neural_split.csv          the frozen train/holdout split
 output/neural/<quality>/         held-out metrics, summary and contact sheet
+                      (sheets are cropped to the frog: the repo is public and the
+                       frames are of a private home. Scores are full-frame)
 scraper.py            dataset collection for the classifier (not started)
 training/train.py     MobileNetV2 transfer learning (not started)
 docs/                 progress report (.docx) and the presentation script

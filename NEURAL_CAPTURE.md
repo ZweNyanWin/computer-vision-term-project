@@ -383,8 +383,19 @@ iterations, 951x709, SH degree 2, 78,888 Gaussians, 6.5 min) reached 19.28 dB /
 
 ### Where it fails, and why
 
-Two failure modes are visible in `output/neural/balanced/holdout_contact_sheet.jpg`
-and worth reporting rather than hiding.
+Two failure modes, both worth reporting rather than hiding.
+
+A note on the evidence first, because it bears on what the contact sheets can and
+cannot show. `output/neural/*/holdout_contact_sheet.jpg` is **cropped to the frog**
+— the frames are of a room in a private home and this repository is public. That
+crop is presentation only: every dB and SSIM figure quoted anywhere is computed on
+the **whole photograph**, and the sheets label their numbers `full` for that reason.
+The consequence is that the sheets are good evidence for the first failure below
+being *absent* on the object, and no evidence at all for the second, which happens
+in the part of the frame the crop removes. That one is carried by the numbers.
+`tools/eval_holdout.py --sheet-pad` widens the window — large values open it out to
+essentially the whole frame (4:3 aspect is enforced, so a few pixels stay cropped) — if you want to look at the backgrounds locally. Do not commit
+what that produces.
 
 **The room is reconstructed far worse than the frog.** Scoring only inside the
 frog's own projected bounding box — 9.1% of the frame, defined from the sparse
@@ -507,3 +518,8 @@ What *is* tracked, and is enough to reproduce and to audit the result:
 `config/neural_manifest.csv` (every source photograph with its optics and
 SHA-256), `config/neural_split.csv` (the frozen split), `output/neural/*/` (the
 metrics, summaries and contact sheets) and `run_neural.sh` with `tools/`.
+
+The repository is public, so the tracked contact sheets are cropped to the frog.
+Nothing else in `output/neural/` contains imagery. If more of the capture is ever
+committed, check first what is in frame — the shoot was done in a private home,
+and `data/**` is gitignored for that reason as much as for size.
