@@ -1,0 +1,86 @@
+CAPTURE
+  photographs            88
+    high                 24
+    low                  19
+    mid                  37
+    top                  8
+  distinct optics        2
+     48 x 5712x4284  6.765 mm  f/1.78  iPhone 15 Pro Max back triple camera 6.765mm f/1.78
+     40 x 4032x3024  2.22 mm  f/2.2  iPhone 15 Pro Max back triple camera 2.22mm f/2.2
+  ISO                    250-640 (5 distinct values) - NOT locked
+  shutter                1/48-1/59 s (2 distinct) - NOT locked
+  exposure lock          none; AE/AF drifted across the session
+
+RECONSTRUCTION (COLMAP)
+  COLMAP 4.1.1 (Commit Unknown on Unknown without CUDA)
+  full model
+    cameras                2
+    images                 88
+    registered             88
+    points                 45192
+    observations           217867
+    mean_track_length      4.820920
+    mean_obs_per_image     2475.761364
+    mean_reproj_px         1.117215px
+  training model
+    cameras                2
+    images                 76
+    registered             76
+    points                 41431
+    observations           188851
+    mean_track_length      4.558205
+    mean_obs_per_image     2484.881579
+    mean_reproj_px         1.130944px
+
+CAMERA GEOMETRY (recovered, relative to the object's horizon)
+  elevation range        +7.9 to +53.1 degrees
+    low                  n=19    +7.9 to  +24.4  mean  +14.8
+    mid                  n=37   +27.4 to  +46.7  mean  +40.9
+    high                 n=24   +36.7 to  +53.1  mean  +46.0
+    top                  n=8    +32.2 to  +48.9  mean  +42.5
+  split                  76 train / 12 held out (13.6%)
+
+TRAINING (MLX3D)
+  mlx3d                  0.3.0
+  mlx                    0.32.2
+  device                 Device(gpu, 0)
+  input                  /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced/images
+  out                    /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced
+  total_seconds          1375.21
+  splat                  /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced/splat.ply
+  splat.ply              34.7 MB
+  final gaussians        140,018
+  sh degree              3
+
+HELD-OUT RESULT
+  splat            model3d/gaussian/frog88_train_balanced/splat.ply
+  gaussians        140,018
+  held-out views   12 of 88
+  
+  TRAINING FIT (not a result - the splat saw these pixels)
+    PSNR 26.13 dB   SSIM 0.8232   n=76
+  
+  HELD-OUT (novel view)
+    render     PSNR 20.02 dB   SSIM 0.7325
+    baseline   PSNR 13.77 dB   SSIM 0.5281   (nearest same-lens training photo, mean separation 8.7 deg)
+  
+  PAIRED DIFFERENCE, render minus baseline (per held-out view)
+    dPSNR  +6.248 dB  95% CI [+4.543, +7.954]  n=12  t=8.06  p=0.0000
+    dSSIM  +0.2044     95% CI [+0.1633, +0.2455]  n=12  t=10.94  p=0.0000
+  
+    PSNR: significant
+    SSIM: significant
+  
+  SECONDARY DIAGNOSTIC - object region only (radius 1.0 units, mean 9.1% of frame)
+    This is NOT the headline result. It isolates how much of the
+    full-frame error is the frog and how much is the room behind it.
+    render     PSNR 24.91 dB   SSIM 0.8079
+    baseline   PSNR 12.33 dB   SSIM 0.2141
+    dPSNR  +12.587 dB  95% CI [+10.099, +15.075]  t=11.13  p=0.0000
+    dSSIM  +0.5939     95% CI [+0.5311, +0.6567]  t=20.81  p=0.0000
+  
+  per-ring held-out means
+    high  n=3  render PSNR  18.14  baseline  13.52  dSSIM +0.1924
+    low   n=3  render PSNR  15.66  baseline  11.22  dSSIM +0.1472
+    mid   n=5  render PSNR  23.43  baseline  15.81  dSSIM +0.2514
+    top   n=1  render PSNR  21.67  baseline  11.97  dSSIM +0.1766

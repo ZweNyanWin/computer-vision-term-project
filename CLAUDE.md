@@ -24,12 +24,13 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Progress demo (`run_progress_demo.py`) | **Done** — end-to-end on a synthetic proxy |
 | Presentation demo (`demo.sh`) | **Done** — seven-step live walkthrough on the real frog; learned depth runs cache-only after warm-up |
 | Unit test (`tests/test_pipeline.py`) | **Passing** |
-| Real frog photographs | **Both shoots done** — 5 hero shots, a closed 36-frame turntable ring, and 9 elevated photographs in `data/`; all 36 ring frames segment cleanly |
+| Real frog photographs | **Three shoots done** — 5 hero shots, a closed 36-frame turntable ring, and 9 elevated photographs; plus the 88-photograph stationary-frog capture of 7 September (19 low / 37 mid / 24 high / 8 top). All in `data/`; all 36 ring frames segment cleanly |
 | Hold-out evaluation (`src/evaluate.py`) | **Done and run** — full-ring runs are in `output/full_e*/` |
 | Explicit reconstruction | **Done** — Apple Object Capture accepted all 45 ring/elevated photographs; 25,008 vertices, 49,999 triangles |
-| Custom multi-view / structure-from-motion | **Not started** — Object Capture is used only as a black-box comparison |
+| Custom multi-view / structure-from-motion | **Done as a pipeline, not as our own solver** — COLMAP 4.1.1 registers 88/88 at 1.117 px through `run_neural.sh`. The SfM implementation is COLMAP's; ours is the two-camera handling, the split and the evaluation. Object Capture remains a separate black-box comparison |
+| Neural multi-view reconstruction | **Done and held-out scored** — MLX3D 0.3.0 on Metal, 140,018 Gaussians in 22.9 min. Held-out novel view **20.02 dB / 0.7325 SSIM** against a nearest-photograph baseline of 13.77 dB / 0.5281, on 12 views withheld before training. See `output/neural/balanced/` |
 | Classifier (`scraper.py`, `training/train.py`) | **Not started.** Carried over from an earlier topic |
-| Workshop station | **Not started** |
+| Workshop station | **Not started.** The splat is viewable now with `mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply`, but no workshop interface has been built |
 
 **The numbers currently in `outputs/` come from a synthetic proxy object, not the
 real frog.** `run_progress_demo.py` generates a clearly-labelled synthetic wooden
@@ -87,6 +88,21 @@ src/evaluate.py       hold-out scoring against withheld photographs
 src/metrics.py        PSNR and SSIM on NumPy/OpenCV, no scikit-image
 tests/test_pipeline.py
 CAPTURE.md            how to photograph the frog (turntable protocol)
+NEURAL_CAPTURE.md     fixed-frog, moving-camera protocol for COLMAP + MLX3D,
+                      and the record of what the 7 September shoot produced
+run_neural.sh         the whole neural path: prepare -> sfm -> undistort ->
+                      split -> train -> eval -> facts. Every stage resumable
+tools/prepare_neural_dataset.py  four ring folders -> one flat COLMAP-ready set
+tools/check_capture.py           EXIF/blur pre-flight on a capture folder
+tools/select_holdout.py          picks the held-out views from camera geometry
+tools/make_train_workspace.py    removes the held-out views from the model
+tools/eval_holdout.py            renders the withheld poses and scores them
+tools/report_facts.py            the table NEURAL_CAPTURE.md asks the report for
+config/neural_manifest.csv       every source photo, its optics and SHA-256
+config/neural_split.csv          the frozen train/holdout split
+output/neural/<quality>/         held-out metrics, summary and contact sheet
+                      (sheets are cropped to the frog: the repo is public and the
+                       frames are of a private home. Scores are full-frame)
 scraper.py            dataset collection for the classifier (not started)
 training/train.py     MobileNetV2 transfer learning (not started)
 docs/                 progress report (.docx) and the presentation script
@@ -150,6 +166,55 @@ ring and do not enter the hold-out evaluation.
 Frame 300° was re-shot after the operator's hand entered the original. The
 replacement is included throughout the full 36-frame results.
 
+## What the neural evaluation measured
+
+Separate capture, separate protocol, separate claim. 88 photographs of a
+**stationary** frog with a moving camera (`NEURAL_CAPTURE.md`), 12 of them
+withheld before training, the Gaussian splat rendered at each withheld camera's
+own recovered pose and intrinsics, and scored full-frame against the withheld
+photograph. Baseline as always: the nearest photograph actually captured — here
+restricted to the same lens, because this shoot used two.
+
+### One claim is supported. Do not write more than this.
+
+**The Gaussian splat renders a withheld viewpoint closer to the withheld
+photograph than the nearest captured photograph is, on every view tested:**
+
+| | mean | 95% CI | n | t | p |
+|---|---|---|---|---|---|
+| ΔPSNR | **+6.25 dB** | [+4.54, +7.95] | 12 | 8.06 | <0.0001 |
+| ΔSSIM | **+0.204** | [+0.163, +0.246] | 12 | 10.94 | <0.0001 |
+
+Held out: 20.02 dB / 0.7325. Baseline: 13.77 dB / 0.5281. 12 of 12 views win on
+both metrics; worst case +2.69 dB and +0.106 SSIM. Source:
+`output/neural/balanced/holdout_metrics.csv`.
+
+### What this claim is not
+
+- **Not comparable to the height-field results above.** Different capture,
+  different object coverage, different baseline separation (8.7° here). Do not
+  put the two in one table, and do not say Gaussian Splatting "beat" the relief
+  pipeline — they were never measured against the same thing.
+- **Not a training-view score.** MLX3D's own `mlx3d-eval` reports fit on training
+  views (26.13 dB / 0.8232 here). The 6.1 dB gap between that and the held-out
+  number is exactly why it must never be quoted as novel-view accuracy.
+- **Not evidence the background reconstructs.** Scored inside the frog's own
+  projected box (9.1% of frame) the render reaches 24.91 dB / 0.808; the rest of
+  the frame is a room seen from too few angles and is largely smear. Report the
+  full-frame number as the result and the object number as what it is made of.
+- **Not free of the capture's faults.** Two lenses (40 of 88 frames are a
+  digitally-cropped ultra-wide, iOS auto-macro), exposure never locked (1.36-stop
+  spread), elevation covering only two bands and nothing above +53°. All measured,
+  all in `NEURAL_CAPTURE.md`.
+- **n = 12.** The intervals are wide because the split is small.
+
+Already tested, do not redo: **MCMC densification** (`METHOD=mcmc`). It fixes the
+one floater — `high_004` goes 15.53 → 21.03 dB — and reaches the same full-frame
+held-out PSNR from a 9.3 MB file instead of 34.7 MB, but loses 4–5 dB of object
+detail on the well-covered middle ring and wins only 5 of 12 views. MLX3D's MCMC
+is fixed-budget, so it is also capacity-confounded (37,512 Gaussians vs 140,018).
+Vanilla is the reported result; both runs are in `output/neural/`.
+
 ## Running it
 
 ```bash
@@ -164,6 +229,24 @@ python render3d.py model3d/frog.obj --frames 9 --sweep 80 --video --out outputs/
 
 # full turntable only from the closed Object Capture mesh
 python render3d.py model3d/frog_combined.obj --frames 36 --sweep 360 --video --out outputs/frog_3d
+```
+
+The neural path is separate — its own venv, its own driver, every stage
+resumable, and it re-runs end to end in about 40 minutes on the M1 Pro:
+
+```bash
+./run_neural.sh all balanced
+```
+
+Or one stage at a time: `prepare`, `sfm`, `undistort`, `split`,
+`train <fast|balanced|best>`, `eval <quality>`, `facts`. `METHOD=mcmc` swaps the
+densification strategy and writes to its own workspace, leaving the reported
+vanilla result untouched. **Do not run plain `mlx3d-capture` on this dataset** —
+it forces one camera model onto two lenses and trains a pinhole rasteriser on
+distorted pixels; `NEURAL_CAPTURE.md` explains both.
+
+```bash
+mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply   # inspect the result
 ```
 
 Learned depth needs `requirements-depth.txt` (torch + transformers). It runs
@@ -199,17 +282,30 @@ machine without `torch`.
 
 ## Next step
 
-Build the workshop station, the remaining deliverable. The current renderer is
-suited to offline animation rather than live interaction, so the station needs
-mesh reduction, a faster rasterisation path, or a deliberately pre-rendered
-interaction.
+The neural branch is finished and scored: capture, 88/88 registration, held-out
+evaluation, and the limitations all recorded above and in `NEURAL_CAPTURE.md`.
+What remains is the **workshop station** — the interactive piece the 22 September
+deliverable actually is. `mlx3d-view` already serves the splat in a browser, so
+the open question is what a visitor does with it, not whether it renders.
 
-Full closed rings at additional camera elevations remain an optional extension
-for hold-out evaluation. The 9 elevated photographs already helped Apple Object
-Capture produce a closed mesh, but every current hold-out number comes from the
-eye-level ring. Do not compare that mesh against those photographs as if it were
-prediction: all 45 photographs went into building it, so such a score measures
-fit instead.
+Two things would materially improve the reconstruction if there is time, in this
+order:
+
+1. **A second elevation band.** The capture has two, +15° and +43°, and nothing
+   above +53°. That is the one axis where coverage is genuinely thin, and it is
+   why the top of the frog is the weakest part of the model. A short ring shot
+   properly from above — main lens, above 30 cm so auto-macro never engages —
+   would cost an hour and is the highest-value addition.
+2. **A re-shoot with exposure actually locked.** ISO and shutter drifted 1.36
+   stops across this session, and Gaussian Splatting bakes that in as haze. The
+   field card already says how; it was not followed.
+
+Neither is required for the report. Both are honest improvements rather than
+larger claims, and the current numbers stand without them.
+
+Do not compare the Object Capture mesh against the 45 photographs that built it
+as if it were prediction — such a score measures fit instead. The same rule is
+why the neural result withholds 12 views before training rather than after.
 
 ## Why this subject
 

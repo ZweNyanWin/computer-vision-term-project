@@ -1,0 +1,31 @@
+splat            model3d/gaussian/frog88_train_balanced_mcmc/splat.ply
+gaussians        37,512
+held-out views   12 of 88
+
+TRAINING FIT (not a result - the splat saw these pixels)
+  PSNR 23.48 dB   SSIM 0.7778   n=76
+
+HELD-OUT (novel view)
+  render     PSNR 19.98 dB   SSIM 0.7227
+  baseline   PSNR 13.77 dB   SSIM 0.5281   (nearest same-lens training photo, mean separation 8.7 deg)
+
+PAIRED DIFFERENCE, render minus baseline (per held-out view)
+  dPSNR  +6.208 dB  95% CI [+4.131, +8.285]  n=12  t=6.58  p=0.0000
+  dSSIM  +0.1946     95% CI [+0.1545, +0.2346]  n=12  t=10.70  p=0.0000
+
+  PSNR: significant
+  SSIM: significant
+
+SECONDARY DIAGNOSTIC - object region only (radius 1.0 units, mean 9.1% of frame)
+  This is NOT the headline result. It isolates how much of the
+  full-frame error is the frog and how much is the room behind it.
+  render     PSNR 23.68 dB   SSIM 0.6916
+  baseline   PSNR 12.33 dB   SSIM 0.2141
+  dPSNR  +11.353 dB  95% CI [+9.725, +12.981]  t=15.35  p=0.0000
+  dSSIM  +0.4775     95% CI [+0.4207, +0.5344]  t=18.48  p=0.0000
+
+per-ring held-out means
+  high  n=3  render PSNR  19.69  baseline  13.52  dSSIM +0.2079
+  low   n=3  render PSNR  13.99  baseline  11.22  dSSIM +0.1385
+  mid   n=5  render PSNR  23.34  baseline  15.81  dSSIM +0.2240
+  top   n=1  render PSNR  21.99  baseline  11.97  dSSIM +0.1752

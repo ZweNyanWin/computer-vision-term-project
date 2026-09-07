@@ -73,13 +73,54 @@ The CSVs in `output/` are the only source for figures quoted in the report — s
 - held-out PSNR/SSIM evaluation against a frame-switching baseline
 - closed-surface reconstruction via Apple Object Capture — 25,008 vertices,
   49,999 triangles
+- multi-view Gaussian Splatting: COLMAP structure-from-motion over 88
+  photographs of a stationary frog, then MLX3D training on Metal, with a
+  held-out split fixed before training
 
 ## What remains pending
 
-- the workshop interface — the remaining deliverable
-- optional extensions: full closed rings at additional camera elevations and
-  the classifier. Nine elevated photographs already support the explicit
-  reconstruction, but the hold-out results come from the eye-level ring
+- the interactive workshop station — the splat is viewable today with
+  `mlx3d-view`, but nothing has been built around it for visitors
+- optional extensions: a genuine second elevation band for the neural capture
+  (it covers only +15° and +43°), a re-shoot with exposure locked, and the
+  classifier
+
+## Neural reconstruction — done and scored
+
+88 photographs, stationary frog, moving camera, per `NEURAL_CAPTURE.md`. COLMAP
+4.1.1 registered **88/88 into one model** at 1.117 px mean reprojection error;
+MLX3D 0.3.0 trained 140,018 Gaussians in 22.9 minutes on the M1 Pro's GPU.
+
+Twelve views were withheld before training, chosen from recovered camera geometry
+and frozen in `config/neural_split.csv`. The splat was then rendered at each
+withheld camera's own pose and intrinsics and scored against the withheld
+photograph, with the nearest same-lens captured photograph as the baseline:
+
+| | PSNR | SSIM |
+|---|---|---|
+| held out, render | **20.02 dB** | **0.7325** |
+| held out, nearest-photograph baseline | 13.77 dB | 0.5281 |
+
+ΔPSNR **+6.25 dB**, 95% CI [+4.54, +7.95]; ΔSSIM **+0.204**, 95% CI [+0.163,
++0.246]; n = 12, both p < 0.0001. The render wins on 12 of 12 views on both
+metrics. The training-view score (26.13 dB) is fit, not accuracy, and is never
+reported as the latter.
+
+This capture used two lenses — 40 of the 88 frames are the ultra-wide digitally
+cropped by iOS auto-macro — so COLMAP runs with one camera model per optic and
+the images are undistorted before training. Running plain `mlx3d-capture` on the
+folder would silently fit one focal length to both. `NEURAL_CAPTURE.md` records
+that, the exposure drift, the thin elevation coverage, and the floater seen in
+one held-out view.
+
+```bash
+/opt/homebrew/bin/python3.12 -m venv .venv-mlx3d
+source .venv-mlx3d/bin/activate
+python -m pip install -r requirements-mlx3d.txt
+
+./run_neural.sh all balanced      # ~40 min end to end, every stage resumable
+mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply
+```
 
 ## Learned depth on a real frog photo
 
@@ -141,4 +182,10 @@ docs/demo_script.md    current four-minute demonstration script
 docs/presentation_script.md  archived pre-capture presentation script
 docs/*.docx            progress reports
 CAPTURE.md             photography protocol
+NEURAL_CAPTURE.md      fixed-frog, moving-camera MLX3D protocol + capture record
+run_neural.sh          end-to-end neural reconstruction and held-out scoring
+tools/                 capture pre-flight, split selection, held-out evaluation
+config/                source manifest and the frozen train/holdout split
+output/neural/         held-out Gaussian Splatting metrics and contact sheets
+requirements-mlx3d.txt pinned Apple Silicon neural environment
 ```

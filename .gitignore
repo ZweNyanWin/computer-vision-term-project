@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+.venv-mlx3d/
 
 # Reference textbook kept locally for lookups. Large, and not ours to publish.
 *.pdf
