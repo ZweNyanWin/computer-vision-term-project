@@ -48,6 +48,32 @@ TRAINING (MLX3D)
   out                    /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced
   total_seconds          1375.21
   splat                  /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced/splat.ply
+  stage frames
+    seconds              0.0
+    source               photos
+    count                76
+  stage poses
+    seconds              0.0
+    method               existing
+  stage train
+    seconds              1357.0445307500001
+    iters                7000
+    downscale            5
+    views                76
+    gaussians            143717
+    psnr_mean            25.54433822631836
+    pose_refined         False
+    checkpoint           /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced/point_cloud.ply
+  stage export
+    seconds              0.33
+    input                /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced/point_cloud.ply
+    output               /Users/zwenyanwin/Desktop/computer-vision-term-project/model3d/gaussian/frog88_train_balanced/splat.ply
+    gaussians_before     143717
+    gaussians_after      140018
+    sh_degree_before     3
+    sh_degree_after      3
+    min_opacity          0.005
+  resource use          NOT MEASURED for this run (no time.txt; do not substitute another run's figure)
   splat.ply              34.7 MB
   final gaussians        140,018
   sh degree              3
@@ -56,6 +82,7 @@ HELD-OUT RESULT
   splat            model3d/gaussian/frog88_train_balanced/splat.ply
   gaussians        140,018
   held-out views   12 of 88
+  split verified   against model3d/gaussian/frog88_train_balanced/sparse/0 (76 trained, no overlap)
   
   TRAINING FIT (not a result - the splat saw these pixels)
     PSNR 26.13 dB   SSIM 0.8232   n=76

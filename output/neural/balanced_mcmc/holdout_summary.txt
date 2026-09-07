@@ -1,6 +1,8 @@
 splat            model3d/gaussian/frog88_train_balanced_mcmc/splat.ply
-gaussians        37,512
+gaussians        37,366
+non-finite       146 Gaussian(s) dropped from the checkpoint before rendering
 held-out views   12 of 88
+split verified   against model3d/gaussian/frog88_train_balanced_mcmc/sparse/0 (76 trained, no overlap)
 
 TRAINING FIT (not a result - the splat saw these pixels)
   PSNR 23.48 dB   SSIM 0.7778   n=76

@@ -136,9 +136,40 @@ def main() -> int:
         summary = Path(root) / "capture.json"
         if summary.exists():
             js = json.loads(summary.read_text())
+            # capture.json nests the numbers that matter - iterations, downscale,
+            # view count, per-stage seconds - one level down under "stages".
+            # Printing only the top-level scalars drops exactly the fields
+            # NEURAL_CAPTURE.md asks the report to record.
             for k, v in js.items():
                 if isinstance(v, (str, int, float)):
                     add(f"  {k:<22} {v}")
+            for stage, body in js.get("stages", {}).items():
+                if not isinstance(body, dict):
+                    continue
+                add(f"  stage {stage}")
+                for k, v in body.items():
+                    if isinstance(v, (str, int, float, bool)) and v is not None:
+                        add(f"    {k:<20} {v}")
+
+        # /usr/bin/time -l output, lifted out of the training log by run_neural.sh.
+        # Absent for runs made before that wrapper was added; say so rather than
+        # leaving the reader to assume it was not measured or, worse, borrowing
+        # another run's figure.
+        tf = Path(root) / "time.txt"
+        if tf.exists():
+            add("  resource use (/usr/bin/time -l)")
+            for line in tf.read_text().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if "maximum resident set size" in line or "peak memory footprint" in line:
+                    n, label = line.split(None, 1)
+                    add(f"    {label:<20} {int(n) / 2**30:.2f} GiB")
+                else:
+                    add(f"    {line}")
+        else:
+            add("  resource use          NOT MEASURED for this run "
+                "(no time.txt; do not substitute another run's figure)")
         splat = Path(root) / "splat.ply"
         if splat.exists():
             add(f"  splat.ply              {splat.stat().st_size / 1e6:.1f} MB")

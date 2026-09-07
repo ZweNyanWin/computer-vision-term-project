@@ -10,16 +10,29 @@ surviving pose bit-identical, so the withheld poses stay directly usable for
 rendering at evaluation time.
 
 What the split does and does not guarantee, stated precisely because the report
-has to:
+has to, and measured rather than assumed (the counts below are for this capture):
 
   * No held-out pixel reaches the trainer, and no Gaussian is ever fitted to one.
-  * ``image_deleter`` also drops each withheld view's observations, so every
-    point that survives into the initialisation is witnessed by training views.
-  * Camera poses and the sparse points were nonetheless solved by bundle
-    adjustment over all 88 photographs, so the withheld observations did
-    influence the geometry. This is the standard 3DGS/Mip-NeRF-360 evaluation
-    protocol - it is the only way the withheld cameras can be located in the
-    training model's frame - and it is disclosed rather than designed away.
+    The photometric loss is computed over the 76 training photographs only.
+  * Every point surviving into the initialisation has at least two training
+    observations, because ``image_deleter`` drops a point once its track falls
+    below that.
+  * It does NOT follow that the surviving points are independent of the withheld
+    views. **14,877 of the 41,431 survivors (36%) were observed by a held-out
+    view in the full reconstruction**, and their positions and colours were bundle
+    adjusted using those observations. Deleting an observation afterwards does not
+    undo its earlier influence: the kept points are bit-identical to the full
+    model's, position and colour alike.
+  * Nor were the 3,761 dropped points "seen only by held-out views". Only 49 had
+    no training observation at all; the other 3,712 had exactly one, and fell
+    below COLMAP's minimum track length of two.
+
+So this is held-out **photometric** evaluation over a **shared SfM
+initialisation**, which is the standard 3DGS / Mip-NeRF-360 protocol and is what
+the numbers should be called. A stricter protocol is possible - reconstruct from
+the 76 training images alone, then localise the withheld cameras into that fixed
+model with COLMAP's image registration - and would be a different, separately
+reported experiment. It is not what was run here.
 
     .venv-mlx3d/bin/python tools/make_train_workspace.py \\
         --full model3d/gaussian/frog88_undist \\
@@ -31,6 +44,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -101,6 +116,30 @@ def main() -> int:
             return 2
         os.symlink(os.path.relpath(src, out / "images"), out / "images" / name)
 
+    # Stamp what this workspace was built from. run_neural.sh refuses to train in
+    # a quality workspace whose stamp no longer matches, which is what stops a
+    # rewritten split from being evaluated against a stale set of training images.
+    def sha256_of(path: Path) -> str:
+        h = hashlib.sha256()
+        with path.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    provenance = {
+        "split_csv": str(Path(args.split)),
+        "split_sha256": sha256_of(Path(args.split)),
+        "source_model": str(full_sparse),
+        "source_sha256": {
+            f: sha256_of(full_sparse / f)
+            for f in ("cameras.bin", "images.bin", "points3D.bin")
+        },
+        "train_images_sha256": hashlib.sha256("\n".join(sorted(kept)).encode()).hexdigest(),
+        "n_train": len(kept),
+        "n_holdout": len(holdout),
+    }
+    (out / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
+
     leaked = sorted(set(kept) & set(holdout))
     print(f"full model      {len(present)} images")
     print(f"training model  {len(kept)} images  -> {out / 'sparse' / '0'}")
@@ -108,6 +147,7 @@ def main() -> int:
     print(f"leaked into training: {len(leaked)}  {'OK' if not leaked else leaked}")
     n_links = len(list((out / 'images').iterdir()))
     print(f"image links     {n_links}")
+    print(f"provenance      {out / 'provenance.json'}")
     if leaked or n_links != len(kept) or len(kept) + len(holdout) != len(present):
         print("FAILED consistency check")
         return 1

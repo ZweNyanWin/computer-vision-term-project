@@ -1,6 +1,7 @@
 splat            model3d/gaussian/frog88_train_balanced/splat.ply
 gaussians        140,018
 held-out views   12 of 88
+split verified   against model3d/gaussian/frog88_train_balanced/sparse/0 (76 trained, no overlap)
 
 TRAINING FIT (not a result - the splat saw these pixels)
   PSNR 26.13 dB   SSIM 0.8232   n=76

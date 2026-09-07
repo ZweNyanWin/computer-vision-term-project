@@ -72,7 +72,8 @@ The CSVs in `output/` are the only source for figures quoted in the report — s
   affine texture mapping per visible triangle, Lambertian shading
 - held-out PSNR/SSIM evaluation against a frame-switching baseline
 - closed-surface reconstruction via Apple Object Capture — 25,008 vertices,
-  49,999 triangles
+  49,999 triangles (rebuilt 7 September as 25,011 / 50,000; the engine is not
+  deterministic, so the two runs are not the same mesh)
 - multi-view Gaussian Splatting: COLMAP structure-from-motion over 88
   photographs of a stationary frog, then MLX3D training on Metal, with a
   held-out split fixed before training
@@ -118,7 +119,8 @@ one held-out view.
 source .venv-mlx3d/bin/activate
 python -m pip install -r requirements-mlx3d.txt
 
-./run_neural.sh all balanced      # ~40 min end to end, every stage resumable
+./run_neural.sh all balanced      # ~40 min end to end; stages skip completed
+                                  # work, but training is NOT resumable
 mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply
 ```
 

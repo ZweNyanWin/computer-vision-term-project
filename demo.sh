@@ -3,6 +3,12 @@
 #
 #   ./demo.sh          run every step, pausing between them
 #   ./demo.sh 3        run step 3 only
+#   ./demo.sh check    verify every prerequisite and exit. Run this BEFORE the
+#                      talk: it reports everything missing at once, with the
+#                      command that rebuilds each, and never opens a window.
+#   DEMO_PYTHON=...    interpreter to use (default python3). Steps 3 and 4 need
+#                      torch + transformers, which the default python3 on this
+#                      machine does not have.
 #   DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3
 #                      warm the model cache once while online
 #
@@ -11,16 +17,68 @@
 # back from the results they wrote, and the commands that produced them are
 # printed so the audience can see they were not run for the first time on stage.
 
-set -u
+# -e matters more than it looks. This script used to run with -u alone, so a
+# step whose embedded Python raised FileNotFoundError printed a traceback, and
+# the script carried on and finished with "done" and status 0. Four of the seven
+# steps were failing that way on this machine and the exit code said everything
+# was fine. A demo that cannot fail cannot be trusted to have worked.
+set -euo pipefail
 cd "$(dirname "$0")"
+
+PY="${DEMO_PYTHON:-python3}"
 
 BOLD=$'\033[1m'; DIM=$'\033[2m'; OFF=$'\033[0m'
 say()  { printf '\n%s>>> %s%s\n' "$BOLD" "$1" "$OFF"; }
 note() { printf '%s    %s%s\n' "$DIM" "$1" "$OFF"; }
-pause() { [ -n "${STEP:-}" ] || { printf '\n%s    [Enter]%s' "$DIM" "$OFF"; read -r _; }; }
+pause() { [ "${CHECK:-0}" = 1 ] && return 0; [ -n "${STEP:-}" ] || { printf '\n%s    [Enter]%s' "$DIM" "$OFF"; read -r _; }; }
 
 STEP="${1:-}"
-run_step() { [ -z "$STEP" ] || [ "$STEP" = "$1" ]; }
+CHECK=0; [ "$STEP" = "check" ] && { CHECK=1; STEP=""; }
+run_step() { [ "$CHECK" = 1 ] && return 1; [ -z "$STEP" ] || [ "$STEP" = "$1" ]; }
+
+MISSING=0
+fail() { printf '    %sMISSING%s %s\n              rebuild: %s\n' "$BOLD" "$OFF" "$1" "$2"; MISSING=1; }
+
+# Check a prerequisite. In `check` mode every problem is collected and reported;
+# in a normal run the first one stops the script rather than letting the talk
+# proceed into a traceback.
+need_file() {
+  [ -e "$1" ] && return 0
+  fail "$1" "$2"
+  [ "$CHECK" = 1 ] || { printf '\n%sstopping: the step above cannot run.%s\n' "$BOLD" "$OFF"; exit 1; }
+  return 1
+}
+need_module() {
+  "$PY" -c "import $1" 2>/dev/null && return 0
+  fail "python module '$1' (interpreter: $PY)" "$3"
+  [ "$CHECK" = 1 ] || { printf '\n%sstopping: the step above cannot run.%s\n' "$BOLD" "$OFF"; exit 1; }
+  return 1
+}
+
+# Everything the demo needs but cannot make for itself. Artifacts a step produces
+# during the run (model3d/demo_live.*) are deliberately not listed: they are
+# outputs, not prerequisites, and listing them would report a clean machine as
+# broken.
+if [ "$CHECK" = 1 ]; then
+  say "Prerequisites"
+  need_file "data/90.jpeg" "the capture is in data/; see CAPTURE.md" || true
+  ls data/[0-9]*.jpeg >/dev/null 2>&1 || fail "the 36-frame ring in data/" "see CAPTURE.md"
+  ls data/ring_high/*.jpeg >/dev/null 2>&1 || fail "data/ring_high/" "see CAPTURE.md"
+  need_module torch "" "python -m pip install -r requirements-depth.txt  (steps 3 and 4)" || true
+  need_module transformers "" "python -m pip install -r requirements-depth.txt  (steps 3 and 4)" || true
+  need_file "output/full_e6/metrics.csv" "python3 src/evaluate.py --frames data --every 6 --depth-mode model" || true
+  need_file "model3d/frog_real.obj" "$PY reconstruct.py data/90.jpeg --depth-mode model --out model3d/frog_real" || true
+  need_file "model3d/frog_combined.obj" "./rebuild_object_capture.sh" || true
+  need_file "recon/frog_combined.usdz" "./rebuild_object_capture.sh" || true
+  need_file "outputs/frog_3d_turntable.mp4" "$PY render3d.py model3d/frog_combined.obj --frames 36 --sweep 360 --video --out outputs/frog_3d" || true
+  need_file "output/neural/balanced/holdout_summary.txt" "./run_neural.sh all balanced" || true
+  if [ "$MISSING" = 1 ]; then
+    printf '\n%sNOT READY - rebuild the items above before presenting.%s\n' "$BOLD" "$OFF"
+    exit 1
+  fi
+  printf '\n%sREADY - every prerequisite is present.%s\n' "$BOLD" "$OFF"
+  exit 0
+fi
 
 # ---------------------------------------------------------------- 1. capture
 if run_step 1; then
@@ -56,11 +114,14 @@ fi
 if run_step 3; then
 say "3. Learned depth and a textured mesh, from one photograph"
 note "Depth Anything V2 Small. No GPU: about three seconds on this laptop."
-if [ "${DEMO_ALLOW_DOWNLOAD:-0}" = "1" ]; then
-    python3 reconstruct.py data/90.jpeg --depth-mode model --out model3d/demo_live --relief 0.42 --grid 120
-else
-    HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
-        python3 reconstruct.py data/90.jpeg --depth-mode model --out model3d/demo_live --relief 0.42 --grid 120
+if need_module torch "" "python -m pip install -r requirements-depth.txt" \
+   && need_module transformers "" "python -m pip install -r requirements-depth.txt"; then
+  if [ "${DEMO_ALLOW_DOWNLOAD:-0}" = "1" ]; then
+      "$PY" reconstruct.py data/90.jpeg --depth-mode model --out model3d/demo_live --relief 0.42 --grid 120
+  else
+      HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+          "$PY" reconstruct.py data/90.jpeg --depth-mode model --out model3d/demo_live --relief 0.42 --grid 120
+  fi
 fi
 pause
 fi
@@ -68,7 +129,8 @@ fi
 # ------------------------------------------------------------ 4. novel views
 if run_step 4; then
 say "4. Synthesising views the camera never took"
-python3 render3d.py model3d/demo_live.obj --frames 5 --sweep 70 --size 420 --out outputs/demo_live
+need_file model3d/demo_live.obj "./demo.sh 3  (needs torch; see step 3)" \
+  && "$PY" render3d.py model3d/demo_live.obj --frames 5 --sweep 70 --size 420 --out outputs/demo_live
 note "Five viewpoints from a single photograph."
 pause
 fi
@@ -101,7 +163,11 @@ fi
 if run_step 6; then
 say "6. Why one photograph is not enough"
 note "Counting triangles that survive back-face culling as the camera swings behind."
-python3 - <<'PY'
+need_file model3d/frog_real.obj \
+  "$PY reconstruct.py data/90.jpeg --depth-mode model --out model3d/frog_real  (needs torch)"
+need_file model3d/frog_combined.obj \
+  "./rebuild_object_capture.sh  (Apple Object Capture over the 45 ring/elevated photographs)"
+"$PY" - <<'PY'
 import sys; sys.path.insert(0, '.')
 import cv2
 from pathlib import Path
@@ -121,9 +187,27 @@ fi
 if run_step 7; then
 say "7. The reconstruction itself"
 note "Apple Object Capture, 45 photographs, 80 s, no GPU and no cloud service."
-open recon/frog_combined.usdz 2>/dev/null && note "opened - drag to rotate it"
-sleep 1
-open outputs/frog_3d_turntable.mp4 2>/dev/null && note "and a full 360 turntable through our own renderer"
+need_file recon/frog_combined.usdz "./rebuild_object_capture.sh"
+need_file outputs/frog_3d_turntable.mp4 \
+  "$PY render3d.py model3d/frog_combined.obj --frames 36 --sweep 360 --video --out outputs/frog_3d"
+if [ "$CHECK" = 0 ]; then
+  open recon/frog_combined.usdz && note "opened - drag to rotate it"
+  sleep 1
+  open outputs/frog_3d_turntable.mp4 && note "and a full 360 turntable through our own renderer"
+fi
+fi
+
+# ------------------------------------------------- 8. the neural reconstruction
+if run_step 8; then
+say "8. Multi-view: 88 photographs, Gaussian Splatting"
+note "The frog stays still and the camera moves, so this is real structure-from-motion."
+need_file output/neural/balanced/holdout_summary.txt "./run_neural.sh all balanced"
+if [ "$CHECK" = 0 ]; then
+  sed -n '/^HELD-OUT/,/^$/p;/^PAIRED/,/^$/p' output/neural/balanced/holdout_summary.txt | sed 's/^/    /'
+  note "12 of 88 views withheld before training; every one beats the nearest photograph."
+  note "Inspect it: mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply"
+fi
+pause
 fi
 
 printf '\n%sdone%s\n' "$BOLD" "$OFF"

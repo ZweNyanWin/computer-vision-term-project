@@ -5,14 +5,26 @@ accuracy, and `NEURAL_CAPTURE.md` forbids reporting it as the latter. This compu
 the held-out number instead: the splat is rendered at the withheld cameras' exact
 recovered poses and intrinsics and scored against the withheld photographs.
 
-Two properties make this stricter than the project's existing mesh evaluation:
+What this is, named precisely, because the obvious name is wrong: **held-out
+photometric evaluation over a shared SfM initialisation**. Two separate facts:
 
   * The render and the photograph are pixel-aligned by construction - same
     extrinsics, same intrinsics, same image grid - so they are compared full-frame
-    with no silhouette cropping or scale normalisation to flatter either one.
-  * The withheld views were removed from the sparse model before training, so no
-    Gaussian ever saw those pixels and no held-out observation contributed to the
-    point cloud the model was initialised from.
+    with no silhouette cropping or scale normalisation to flatter either one. The
+    withheld views are absent from the training model, so no Gaussian is ever
+    fitted to one of their pixels.
+  * But the initialisation is **not** independent of them. Structure-from-motion
+    was solved over all 88 photographs before the split was applied, so on this
+    capture 14,877 of the 41,431 surviving points (36%) were observed by a
+    withheld view, and their positions and colours carry that bundle adjustment.
+    Deleting an observation afterwards does not undo its earlier influence - the
+    kept points are bit-identical to the full model's.
+
+A stricter protocol exists: reconstruct from the training images alone, then
+localise the withheld cameras into that fixed model with COLMAP's image
+registration. That is a different experiment and would need its own reported
+number. What runs here is the standard 3DGS / Mip-NeRF-360 arrangement, and it
+should be described as that rather than as full independence.
 
 The baseline is the same question the mesh evaluation asks: can the reconstruction
 beat simply showing the nearest photograph that was actually captured? A render
@@ -94,7 +106,11 @@ def ci95(values: np.ndarray) -> tuple[float, float, float, float]:
         return mean, float("nan"), float("nan"), float("nan")
     sem = float(np.std(values, ddof=1) / math.sqrt(n))
     if sem == 0:
-        return mean, 0.0, float("inf"), 0.0
+        # Every difference identical. A t statistic is undefined here, not
+        # infinite, and reporting p=0 would announce certainty from a sample
+        # that contains no variation at all. Say undefined and let the caller
+        # print nan rather than a spurious significance.
+        return mean, 0.0, float("nan"), float("nan")
     try:
         from scipy import stats
 
@@ -111,9 +127,18 @@ def main() -> int:
     ap.add_argument("--model", required=True, help="COLMAP workspace holding ALL poses (sparse/0)")
     ap.add_argument("--images", default=None, help="image dir (default: <model>/images)")
     ap.add_argument("--split", default="config/neural_split.csv")
+    ap.add_argument(
+        "--train-model", default=None,
+        help="sparse model the splat was actually trained on "
+             "(default: <splat dir>/sparse/0). Checked against the split.",
+    )
     ap.add_argument("--out", default="output/neural")
     ap.add_argument("--downscale", type=int, required=True, help="must match the training downscale")
     ap.add_argument("--contact-sheet", action="store_true")
+    ap.add_argument(
+        "--require-finite", action="store_true",
+        help="fail instead of dropping Gaussians that hold non-finite values",
+    )
     ap.add_argument(
         "--sheet-pad", type=float, default=0.45,
         help="context around the object in the contact sheet, as a fraction of the "
@@ -147,10 +172,72 @@ def main() -> int:
     model = GaussianModel.load_ply(args.splat)
     print(f"loaded splat: {model.num_gaussians:,} Gaussians, SH degree {model.active_sh_degree}")
 
+    # MLX3D's compactor selects on opacity and importance; it has no finite-value
+    # filter, so a training run that produced a degenerate Gaussian exports it.
+    # Two of this project's three runs did: 3 rows in fast, 146 in MCMC, with
+    # NaN in position, scale and rotation as well as the high-order SH bands.
+    # A NaN position makes every comparison in the tile binner false, so such a
+    # Gaussian is almost certainly invisible already - but "almost certainly" is
+    # not a basis for a reported number. Drop them explicitly and record how many.
+    n_before = model.num_gaussians
+    finite = np.ones(n_before, dtype=bool)
+    for key, value in model.params.items():
+        arr = np.asarray(value).reshape(n_before, -1)
+        finite &= np.isfinite(arr).all(axis=1)
+    n_dropped = int((~finite).sum())
+    if n_dropped:
+        if args.require_finite:
+            print(
+                f"error: {n_dropped} of {n_before:,} Gaussians hold non-finite values. "
+                "Re-run without --require-finite to drop and continue."
+            )
+            return 2
+        model.select(np.where(finite)[0])
+        print(
+            f"dropped {n_dropped} non-finite Gaussian(s) before rendering "
+            f"({100 * n_dropped / n_before:.4f}% of the checkpoint)"
+        )
+
     missing = holdout - set(ds.image_names)
     if missing:
         print(f"error: {len(missing)} held-out view(s) absent from the model: {sorted(missing)[:5]}")
         return 2
+
+    # Verify the split against the model the splat was ACTUALLY trained on, not
+    # against whatever the CSV currently says. The CSV can be rewritten and a
+    # previously-built quality workspace reused, and then a training image would
+    # be reported as a held-out result -- the single worst failure this script
+    # could have. Reading the trained model's own image list closes that off
+    # regardless of how the workspaces were cached.
+    train_sparse = Path(args.train_model or (Path(args.splat).parent / "sparse" / "0"))
+    if not (train_sparse / "images.bin").exists():
+        print(
+            f"error: cannot find the training model at {train_sparse}. Pass --train-model. "
+            "The split cannot be verified without it, and an unverified split must not be scored."
+        )
+        return 2
+    from mlx3d.datasets.colmap import _read_images_bin
+
+    trained_on = {m["name"] for m in _read_images_bin(str(train_sparse / "images.bin")).values()}
+    leaked = sorted(trained_on & holdout)
+    if leaked:
+        print(
+            f"error: {len(leaked)} view(s) marked held out were in the splat's training "
+            f"model: {leaked[:5]}. The workspace is stale with respect to "
+            f"{args.split}; rebuild it with tools/make_train_workspace.py."
+        )
+        return 2
+    unaccounted = set(ds.image_names) - trained_on - holdout
+    if unaccounted:
+        print(
+            f"error: {len(unaccounted)} view(s) are neither trained on nor held out: "
+            f"{sorted(unaccounted)[:5]}. The split does not describe this splat."
+        )
+        return 2
+    print(
+        f"split verified against {train_sparse}: {len(trained_on)} trained, "
+        f"{len(holdout)} held out, no overlap"
+    )
 
     centers = np.stack([np.asarray(c.camera_center) for c in ds.cameras])
     obj = np.median(np.asarray(ds.points), axis=0)
@@ -285,7 +372,12 @@ def main() -> int:
     lines = []
     lines.append(f"splat            {args.splat}")
     lines.append(f"gaussians        {model.num_gaussians:,}")
+    if n_dropped:
+        lines.append(
+            f"non-finite       {n_dropped} Gaussian(s) dropped from the checkpoint before rendering"
+        )
     lines.append(f"held-out views   {len(hold)} of {len(rows)}")
+    lines.append(f"split verified   against {train_sparse} ({len(trained_on)} trained, no overlap)")
     lines.append("")
     lines.append("TRAINING FIT (not a result - the splat saw these pixels)")
     lines.append(

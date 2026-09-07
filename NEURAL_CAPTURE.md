@@ -307,19 +307,43 @@ camera *position* only — no image content, no training signal — and is fixed
 fitted.
 
 The withheld views are then deleted from the sparse model with `colmap
-image_deleter`, so MLX3D never sees them: 3,761 of the 45,192 points were witnessed
-only by withheld views and were dropped with them, leaving 41,431 to initialise
-from. Deleting from the solved model rather than re-running SfM on 76 images is
-deliberate — a fresh solve would land in its own arbitrary world frame, and the
-withheld cameras could then no longer be expressed in it.
+image_deleter`, so MLX3D never sees them: 3,761 of the 45,192 points go with them,
+leaving 41,431 to initialise from. Deleting from the solved model rather than
+re-running SfM on 76 images keeps every surviving pose bit-identical, so the
+withheld cameras stay directly usable for rendering.
 
-**What the split does not claim.** Camera poses and the sparse points were solved
-by bundle adjustment over all 88 photographs, so the withheld observations did
-influence the recovered geometry. This is the standard 3DGS / Mip-NeRF-360
-evaluation protocol, and it is the only way a withheld camera can be located in the
-training model's frame at all, but it is a real caveat and is disclosed rather than
-designed away. No withheld pixel reaches the trainer and no Gaussian is fitted to
-one.
+**What the split does not claim.** This is the part most easily overstated, so it
+is measured rather than described. Counts are reproducible from the two models
+with the track data in `points3D.bin`:
+
+| | |
+|---|---|
+| points surviving into training | 41,431 |
+| …of those, observed by a withheld view in the full model | **14,877 (36%)** |
+| points dropped with the withheld views | 3,761 |
+| …that had **no** training observation at all | **49** |
+| …that had exactly one, and so fell below COLMAP's minimum track length of 2 | 3,712 |
+| kept points whose position or colour changed | **0** |
+
+So two things are true at once. No withheld pixel reaches the trainer and no
+Gaussian is fitted to one — the photometric loss runs over the 76 training
+photographs only. But structure-from-motion was solved over all 88 before the
+split was applied, so a third of the surviving points were bundle adjusted using
+withheld observations, and deleting an observation afterwards does not undo that
+influence. The kept points are bit-identical to the full model's.
+
+The honest name for the result is therefore **held-out photometric evaluation over
+a shared SfM initialisation**, which is the standard 3DGS / Mip-NeRF-360
+arrangement. An earlier version of this section said the 3,761 dropped points were
+"witnessed only by withheld views"; that was wrong, as the table shows — nearly all
+of them simply lost their second observation.
+
+A stricter protocol does exist, and the claim that joint reconstruction is the only
+option was also wrong: COLMAP can register images into an existing reconstruction
+([FAQ](https://colmap.github.io/faq.html#register-localize-new-images-into-an-existing-reconstruction)),
+so one could reconstruct from the 76 training images alone and localise the
+withheld cameras into that fixed model. That is a different experiment with its own
+number, and it is not what was run here.
 
 ### What was actually run, and what it cost
 
@@ -376,10 +400,16 @@ The 6.1 dB gap between training fit and held-out performance is the honest cost 
 generalisation, and it is why `mlx3d-eval`'s training-view number must never be
 quoted as a novel-view result.
 
-Longer training helps, but not uniformly. The `--quality fast` gate run (3,000
-iterations, 951x709, SH degree 2, 78,888 Gaussians, 6.5 min) reached 19.28 dB /
-0.7178 held out — already ΔPSNR +5.49 and ΔSSIM +0.200 over the baseline. Going to
-`balanced` bought +0.74 dB on average and improved 11 of 12 views.
+The `fast` preset is close behind. Its gate run reached 19.28 dB / 0.7178 held out
+— already ΔPSNR +5.49 and ΔSSIM +0.200 over the baseline — in 6.5 minutes against
+`balanced`'s 22.9. Moving to `balanced` bought +0.74 dB on average and improved 11
+of 12 views.
+
+That gain **cannot be attributed to longer training**. The presets change three
+things at once: 3,000 → 7,000 iterations, 951x709 → 1141x851, and SH degree 2 → 3,
+which together also took the model from 78,888 to 140,018 Gaussians. Separating
+those would need one-factor-at-a-time runs that were not done. "More of everything
+helps a little" is the whole claim the two runs support.
 
 ### Where it fails, and why
 
@@ -451,6 +481,12 @@ reasons: it is the fix if floaters ever dominate, and it reaches the same
 full-frame held-out PSNR from a 9.3 MB file — a quarter the size — which is the
 number that will matter when the splat has to load in a browser at the workshop.
 
+Two honest caveats on this comparison. It is **one paired run**, so it shows that
+the floater went away under MCMC, not that fixed budget is the *mechanism* — the
+two runs also differ in Gaussian count, and either could explain it. And choosing
+vanilla on the strength of these scores is model selection on the held-out set;
+both runs are reported precisely so the choice is visible rather than hidden.
+
 ### Limitations to state in the report
 
 1. **Two lenses, and the second is a cropped ultra-wide.** Handled with per-optic
@@ -465,11 +501,29 @@ number that will matter when the splat has to load in a browser at the workshop.
    +53 deg, and nothing below +8 deg. The frog's underside is unobserved, as the
    section below describes.
 5. **Poses and sparse points were solved over all 88 photographs**, the standard
-   3DGS protocol; withheld observations therefore influenced the geometry, though
-   no withheld pixel reached the trainer.
-6. **n = 12.** The confidence intervals are wide because the split is small; they
-   are computed from per-view paired differences with a t distribution, not from a
-   difference of two means.
+   3DGS protocol; 36% of the surviving points were bundle adjusted using withheld
+   observations, though no withheld pixel reached the trainer. Call the result
+   held-out photometric evaluation over a shared SfM initialisation.
+6. **The 12 views were also used to compare alternatives.** The vanilla-versus-MCMC
+   comparison, and the choice to report vanilla, were made by looking at these same
+   held-out scores. That is model selection on the test set. It is a weak form of
+   it — both runs are reported in full, and the choice does not change either
+   number — but the split stopped being a wholly untouched test set the moment it
+   was used to pick between two models, and a genuinely clean confirmation would
+   need views withheld from this decision too.
+7. **n = 12, one object, one session.** The intervals describe how much the
+   render-minus-baseline difference varies **across these twelve viewpoints of this
+   frog**. They are not evidence about other objects, other captures, or Gaussian
+   Splatting in general, and they are computed from per-view paired differences
+   with a t distribution rather than from a difference of two means.
+8. **Two of the three exported splats contained non-finite Gaussians** — 3 rows in
+   `fast`, 146 in MCMC, with NaN in position, scale and rotation; the reported
+   `balanced` artifact has none. MLX3D's compactor selects on opacity and
+   importance and has no finite-value filter, so they were exported. The evaluator
+   now drops them and records the count; re-running every evaluation with that gate
+   reproduced all three metrics CSVs byte-for-byte, which shows those Gaussians were
+   already invisible to the tile binner rather than quietly contributing. They are
+   still invalid as portable viewer assets.
 
 ## The bottom of the frog
 
@@ -506,7 +560,7 @@ Two entries on that list need a caveat. **Lighting** is not recoverable from the
 files and has to be written down by whoever shot it. **Peak memory** was not
 instrumented for the vanilla run — `run_neural.sh` now wraps training in
 `/usr/bin/time -l` and writes `<workspace>/time.txt`, but that was added
-afterwards. It did capture the MCMC run: **3.45 GB peak footprint**, 1.02 GB
+afterwards. It did capture the MCMC run: **3.45 GB peak footprint** (3.21 GiB), 0.95 GiB
 maximum resident, for 7,000 iterations at 1141x851 with 41,431 Gaussians. Memory
 was never the binding constraint either way — the vanilla run finished at 140,018
 Gaussians against a 1.2 M cap, and the measured table above puts 1.2 M at 3.5 GB

@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 # End-to-end neural (Gaussian Splatting) reconstruction of the frog, from the
-# four capture rings to a held-out score. Every stage is resumable: re-running
-# skips work whose output already exists, so a failed late stage does not cost
-# the early ones.
+# four capture rings to a held-out score.
+#
+# Re-running is safe but "resumable" needs care, because the stages differ:
+#
+#   prepare / sfm / undistort / split   skip work already completed, guarded by
+#                                       sentinels written only on success
+#   train                               NOT resumable. MLX3D 0.3.0 has no
+#                                       checkpoint resume - _stage_train always
+#                                       rebuilds from GaussianModel.from_points -
+#                                       so re-running restarts from iteration 0.
+#                                       It refuses by default when splat.ply
+#                                       exists; RETRAIN=1 overrides.
+#   eval / facts                        cheap, always re-run
 #
 #   ./run_neural.sh prepare     normalise the four rings into one flat set
 #   ./run_neural.sh sfm         COLMAP: features -> matches -> mapper
@@ -150,9 +160,38 @@ suffix() { [ "$METHOD" = vanilla ] && echo "$1" || echo "$1_$METHOD"; }
 
 do_train() {
   local out="model3d/gaussian/frog88_train_$(suffix "$1")"
+  local base="model3d/gaussian/frog88_train"
+  [ -f "$base/provenance.json" ] || { echo "run '$0 split' first: no $base/provenance.json" >&2; exit 2; }
+
   if [ ! -d "$out" ]; then
-    cp -R "model3d/gaussian/frog88_train" "$out"
+    cp -R "$base" "$out"
+  elif ! cmp -s "$base/provenance.json" "$out/provenance.json"; then
+    # The split was recomputed after this workspace was built. Training on it now
+    # would fit images the current split calls held out, and the evaluation would
+    # report one of them as a novel view. Refuse rather than silently reuse.
+    echo "ERROR: $out was built from a different split than $base." >&2
+    echo "       Delete it to rebuild, or re-run '$0 split' if the split is stale." >&2
+    diff <(cat "$base/provenance.json") <(cat "$out/provenance.json") | head -12 >&2
+    exit 2
   fi
+
+  # MLX3D has no checkpoint resume: _stage_train always rebuilds the model with
+  # GaussianModel.from_points, so calling this again retrains from scratch over
+  # the previous artifacts. Make that a decision rather than an accident.
+  if [ -f "$out/splat.ply" ] && [ "${RETRAIN:-0}" != "1" ]; then
+    echo "$out/splat.ply already exists - training is NOT resumable, so this would"
+    echo "restart from iteration 0 and overwrite it. Set RETRAIN=1 to do that"
+    echo "deliberately, or delete the directory for a clean run. Skipping."
+    return 0
+  fi
+
+  # A second trainer writing the same directory would interleave checkpoints.
+  if ! mkdir "$out/.lock" 2>/dev/null; then
+    echo "ERROR: $out/.lock exists - another training run holds this workspace." >&2
+    echo "       Remove it if no trainer is running." >&2
+    exit 2
+  fi
+  trap 'rmdir "$out/.lock" 2>/dev/null || true' EXIT
   # --low-mem is mandatory on a 16 GB machine: without it max_gaussians is None
   # and growth is unbounded (capture/pipeline.py:230).
   #
@@ -170,6 +209,8 @@ do_train() {
     > "$out/time.txt" || true
   echo "resource summary -> $out/time.txt"
   cat "$out/time.txt"
+  rmdir "$out/.lock" 2>/dev/null || true
+  trap - EXIT
 }
 
 # Radius about the scene median that bounds the frog, in COLMAP's arbitrary units.

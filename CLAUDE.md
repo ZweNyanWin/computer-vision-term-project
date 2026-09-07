@@ -20,13 +20,13 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Component | State |
 |---|---|
 | Novel-view renderer (`render3d.py`) | **Done**, tested, measured |
-| Reconstruction (`reconstruct.py`) | **Done**, both paths. Learned depth runs locally — `torch` is installed and Depth Anything V2 Small uses MPS, ~3 s a frame |
+| Reconstruction (`reconstruct.py`) | **Done**, both paths. Learned depth needs `torch` + `transformers`, which **are not installed on this machine any more** (no conda env, no torch in any interpreter). The shape-proxy path still runs. Install `requirements-depth.txt` to restore it |
 | Progress demo (`run_progress_demo.py`) | **Done** — end-to-end on a synthetic proxy |
-| Presentation demo (`demo.sh`) | **Done** — seven-step live walkthrough on the real frog; learned depth runs cache-only after warm-up |
+| Presentation demo (`demo.sh`) | **Runs, and now fails honestly.** Eight steps (step 8 is the neural result). It used to print `done` and exit 0 with four steps broken; it now runs under `set -euo pipefail` and `./demo.sh check` reports every missing prerequisite with its rebuild command. Steps 3, 4 and 6 still need `torch` |
 | Unit test (`tests/test_pipeline.py`) | **Passing** |
 | Real frog photographs | **Three shoots done** — 5 hero shots, a closed 36-frame turntable ring, and 9 elevated photographs; plus the 88-photograph stationary-frog capture of 7 September (19 low / 37 mid / 24 high / 8 top). All in `data/`; all 36 ring frames segment cleanly |
 | Hold-out evaluation (`src/evaluate.py`) | **Done and run** — full-ring runs are in `output/full_e*/` |
-| Explicit reconstruction | **Done** — Apple Object Capture accepted all 45 ring/elevated photographs; 25,008 vertices, 49,999 triangles |
+| Explicit reconstruction | **Done** — Apple Object Capture accepted all 45 ring/elevated photographs; 25,008 vertices, 49,999 triangles. Rebuilt 7 September with `./rebuild_object_capture.sh` after the artifacts were lost: 25,011 vertices, 50,000 triangles. **Object Capture is not deterministic**, so quote whichever run the report's figures come from and do not treat the two as the same mesh |
 | Custom multi-view / structure-from-motion | **Done as a pipeline, not as our own solver** — COLMAP 4.1.1 registers 88/88 at 1.117 px through `run_neural.sh`. The SfM implementation is COLMAP's; ours is the two-camera handling, the split and the evaluation. Object Capture remains a separate black-box comparison |
 | Neural multi-view reconstruction | **Done and held-out scored** — MLX3D 0.3.0 on Metal, 140,018 Gaussians in 22.9 min. Held-out novel view **20.02 dB / 0.7325 SSIM** against a nearest-photograph baseline of 13.77 dB / 0.5281, on 12 views withheld before training. See `output/neural/balanced/` |
 | Classifier (`scraper.py`, `training/train.py`) | **Not started.** Carried over from an earlier topic |
@@ -91,7 +91,10 @@ CAPTURE.md            how to photograph the frog (turntable protocol)
 NEURAL_CAPTURE.md     fixed-frog, moving-camera protocol for COLMAP + MLX3D,
                       and the record of what the 7 September shoot produced
 run_neural.sh         the whole neural path: prepare -> sfm -> undistort ->
-                      split -> train -> eval -> facts. Every stage resumable
+                      split -> train -> eval -> facts. Stages skip completed work;
+                      training is NOT resumable and refuses to overwrite (RETRAIN=1)
+rebuild_object_capture.sh  regenerates the gitignored Object Capture mesh,
+                      usdz and turntable that demo.sh steps 6-7 read
 tools/prepare_neural_dataset.py  four ring folders -> one flat COLMAP-ready set
 tools/check_capture.py           EXIF/blur pre-flight on a capture folder
 tools/select_holdout.py          picks the held-out views from camera geometry
@@ -206,7 +209,19 @@ both metrics; worst case +2.69 dB and +0.106 SSIM. Source:
   digitally-cropped ultra-wide, iOS auto-macro), exposure never locked (1.36-stop
   spread), elevation covering only two bands and nothing above +53°. All measured,
   all in `NEURAL_CAPTURE.md`.
-- **n = 12.** The intervals are wide because the split is small.
+- **Not independent of the held-out views at initialisation.** SfM was solved over
+  all 88 photographs before the split was applied, so **14,877 of the 41,431**
+  points the model starts from (36%) were observed by a withheld view and bundle
+  adjusted using it; the kept points are bit-identical to the full model's. No
+  withheld pixel reaches the trainer, but the correct name for the result is
+  *held-out photometric evaluation over a shared SfM initialisation*, not a
+  reconstruction independent of the test views. Saying otherwise is wrong, and an
+  earlier version of the docs did.
+- **Not an untouched test set.** These same 12 views were used to compare vanilla
+  against MCMC and to pick which to report. Both are published, and the choice
+  changes neither number, but that is still model selection on the test set.
+- **n = 12, one object, one session.** The intervals describe variation across
+  twelve viewpoints of this frog. They say nothing about other objects or captures.
 
 Already tested, do not redo: **MCMC densification** (`METHOD=mcmc`). It fixes the
 one floater — `high_004` goes 15.53 → 21.03 dB — and reaches the same full-frame
@@ -216,6 +231,11 @@ is fixed-budget, so it is also capacity-confounded (37,512 Gaussians vs 140,018)
 Vanilla is the reported result; both runs are in `output/neural/`.
 
 ## Running it
+
+The `cv` conda environment the next block assumes **does not exist on this
+machine** — there is no conda install at all, and no interpreter here has `torch`.
+Everything except learned depth runs under the system `python3` or
+`.venv-mlx3d/bin/python`; `./demo.sh check` reports exactly what is missing.
 
 ```bash
 conda activate cv
@@ -232,7 +252,7 @@ python render3d.py model3d/frog_combined.obj --frames 36 --sweep 360 --video --o
 ```
 
 The neural path is separate — its own venv, its own driver, every stage
-resumable, and it re-runs end to end in about 40 minutes on the M1 Pro:
+re-runnable, and it goes end to end in about 40 minutes on the M1 Pro:
 
 ```bash
 ./run_neural.sh all balanced
@@ -241,7 +261,15 @@ resumable, and it re-runs end to end in about 40 minutes on the M1 Pro:
 Or one stage at a time: `prepare`, `sfm`, `undistort`, `split`,
 `train <fast|balanced|best>`, `eval <quality>`, `facts`. `METHOD=mcmc` swaps the
 densification strategy and writes to its own workspace, leaving the reported
-vanilla result untouched. **Do not run plain `mlx3d-capture` on this dataset** —
+vanilla result untouched.
+
+**"Resumable" means different things per stage.** `prepare`/`sfm`/`undistort`/
+`split` skip work already completed, guarded by sentinels written only on success.
+**Training is not resumable at all** — MLX3D 0.3.0 rebuilds the model from
+`GaussianModel.from_points` every time, so re-running restarts from iteration 0.
+It now refuses when `splat.ply` exists; `RETRAIN=1` overrides deliberately. A
+quality workspace built from a different split is refused outright, and `eval`
+verifies the split against the model the splat was actually trained on. **Do not run plain `mlx3d-capture` on this dataset** —
 it forces one camera model onto two lenses and trains a pinhole rasteriser on
 distorted pixels; `NEURAL_CAPTURE.md` explains both.
 
