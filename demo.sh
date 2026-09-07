@@ -6,9 +6,9 @@
 #   ./demo.sh check    verify every prerequisite and exit. Run this BEFORE the
 #                      talk: it reports everything missing at once, with the
 #                      command that rebuilds each, and never opens a window.
-#   DEMO_PYTHON=...    interpreter to use (default python3). Steps 3 and 4 need
-#                      torch + transformers, which the default python3 on this
-#                      machine does not have.
+#   DEMO_PYTHON=...    interpreter to use. Defaults to .venv-depth/bin/python
+#                      when that exists (steps 3, 4 and 6 need torch), else
+#                      python3.
 #   DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3
 #                      warm the model cache once while online
 #
@@ -25,7 +25,17 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PY="${DEMO_PYTHON:-python3}"
+# Learned depth needs torch + transformers, which the system python3 does not
+# have and which this project keeps out of it. `.venv-depth` is the dedicated
+# environment for them (see README); prefer it automatically so the demo needs no
+# ceremony, and let DEMO_PYTHON override for anything else.
+if [ -n "${DEMO_PYTHON:-}" ]; then
+  PY="$DEMO_PYTHON"
+elif [ -x .venv-depth/bin/python ]; then
+  PY=.venv-depth/bin/python
+else
+  PY=python3
+fi
 
 BOLD=$'\033[1m'; DIM=$'\033[2m'; OFF=$'\033[0m'
 say()  { printf '\n%s>>> %s%s\n' "$BOLD" "$1" "$OFF"; }
@@ -64,10 +74,10 @@ if [ "$CHECK" = 1 ]; then
   need_file "data/90.jpeg" "the capture is in data/; see CAPTURE.md" || true
   ls data/[0-9]*.jpeg >/dev/null 2>&1 || fail "the 36-frame ring in data/" "see CAPTURE.md"
   ls data/ring_high/*.jpeg >/dev/null 2>&1 || fail "data/ring_high/" "see CAPTURE.md"
-  need_module torch "" "python -m pip install -r requirements-depth.txt  (steps 3 and 4)" || true
-  need_module transformers "" "python -m pip install -r requirements-depth.txt  (steps 3 and 4)" || true
+  need_module torch "" "python3 -m venv .venv-depth && .venv-depth/bin/python -m pip install -r requirements-depth.txt" || true
+  need_module transformers "" "python3 -m venv .venv-depth && .venv-depth/bin/python -m pip install -r requirements-depth.txt" || true
   need_file "output/full_e6/metrics.csv" "python3 src/evaluate.py --frames data --every 6 --depth-mode model" || true
-  need_file "model3d/frog_real.obj" "$PY reconstruct.py data/90.jpeg --depth-mode model --out model3d/frog_real" || true
+  need_file "model3d/frog_real.obj" "DEMO_ALLOW_DOWNLOAD=1 $PY reconstruct.py data/90.jpeg --depth-mode model --out model3d/frog_real" || true
   need_file "model3d/frog_combined.obj" "./rebuild_object_capture.sh" || true
   need_file "recon/frog_combined.usdz" "./rebuild_object_capture.sh" || true
   need_file "outputs/frog_3d_turntable.mp4" "$PY render3d.py model3d/frog_combined.obj --frames 36 --sweep 360 --video --out outputs/frog_3d" || true
@@ -164,7 +174,7 @@ if run_step 6; then
 say "6. Why one photograph is not enough"
 note "Counting triangles that survive back-face culling as the camera swings behind."
 need_file model3d/frog_real.obj \
-  "$PY reconstruct.py data/90.jpeg --depth-mode model --out model3d/frog_real  (needs torch)"
+  "DEMO_ALLOW_DOWNLOAD=1 $PY reconstruct.py data/90.jpeg --depth-mode model --out model3d/frog_real"
 need_file model3d/frog_combined.obj \
   "./rebuild_object_capture.sh  (Apple Object Capture over the 45 ring/elevated photographs)"
 "$PY" - <<'PY'

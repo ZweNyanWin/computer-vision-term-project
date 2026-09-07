@@ -20,9 +20,9 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Component | State |
 |---|---|
 | Novel-view renderer (`render3d.py`) | **Done**, tested, measured |
-| Reconstruction (`reconstruct.py`) | **Done**, both paths. Learned depth needs `torch` + `transformers`, which **are not installed on this machine any more** (no conda env, no torch in any interpreter). The shape-proxy path still runs. Install `requirements-depth.txt` to restore it |
+| Reconstruction (`reconstruct.py`) | **Done**, both paths, both running. Learned depth lives in `.venv-depth` (torch 2.14 on MPS, transformers 5.16) — there is no conda env on this machine, so `.venv-depth` replaces the `cv` env the older docs assumed. ~3 s a frame |
 | Progress demo (`run_progress_demo.py`) | **Done** — end-to-end on a synthetic proxy |
-| Presentation demo (`demo.sh`) | **Runs, and now fails honestly.** Eight steps (step 8 is the neural result). It used to print `done` and exit 0 with four steps broken; it now runs under `set -euo pipefail` and `./demo.sh check` reports every missing prerequisite with its rebuild command. Steps 3, 4 and 6 still need `torch` |
+| Presentation demo (`demo.sh`) | **Done — all eight steps run**, step 8 being the neural result. `./demo.sh check` reports READY. It previously printed `done` and exited 0 while four steps were broken; it now runs under `set -euo pipefail` and picks up `.venv-depth` automatically |
 | Unit test (`tests/test_pipeline.py`) | **Passing** |
 | Real frog photographs | **Three shoots done** — 5 hero shots, a closed 36-frame turntable ring, and 9 elevated photographs; plus the 88-photograph stationary-frog capture of 7 September (19 low / 37 mid / 24 high / 8 top). All in `data/`; all 36 ring frames segment cleanly |
 | Hold-out evaluation (`src/evaluate.py`) | **Done and run** — full-ring runs are in `output/full_e*/` |
@@ -95,6 +95,8 @@ run_neural.sh         the whole neural path: prepare -> sfm -> undistort ->
                       training is NOT resumable and refuses to overwrite (RETRAIN=1)
 rebuild_object_capture.sh  regenerates the gitignored Object Capture mesh,
                       usdz and turntable that demo.sh steps 6-7 read
+.venv-depth/          torch + transformers for learned depth (gitignored)
+.venv-mlx3d/          mlx3d + COLMAP tooling for the neural path (gitignored)
 tools/prepare_neural_dataset.py  four ring folders -> one flat COLMAP-ready set
 tools/check_capture.py           EXIF/blur pre-flight on a capture folder
 tools/select_holdout.py          picks the held-out views from camera geometry
@@ -232,13 +234,17 @@ Vanilla is the reported result; both runs are in `output/neural/`.
 
 ## Running it
 
-The `cv` conda environment the next block assumes **does not exist on this
-machine** — there is no conda install at all, and no interpreter here has `torch`.
-Everything except learned depth runs under the system `python3` or
-`.venv-mlx3d/bin/python`; `./demo.sh check` reports exactly what is missing.
+**There is no conda on this machine**, so the `cv` environment the next block
+names does not exist. The working equivalents are the system `python3` (numpy +
+opencv, enough for the renderer and evaluation), `.venv-depth` (learned depth) and
+`.venv-mlx3d` (the neural path). `./demo.sh check` reports what is missing.
 
 ```bash
-conda activate cv
+# learned depth - what the `cv` env used to provide
+python3 -m venv .venv-depth
+.venv-depth/bin/python -m pip install -r requirements-depth.txt
+
+conda activate cv                        # only if you have such an env
 pip install -r requirements.txt          # numpy + opencv only
 python run_progress_demo.py              # regenerates outputs/
 python tests/test_pipeline.py            # unittest, not pytest

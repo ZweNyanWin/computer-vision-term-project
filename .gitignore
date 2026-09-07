@@ -32,3 +32,7 @@ recon/input_combined/
 
 # Word lock files, created while a document is open.
 ~$*
+
+# Learned-depth environment: torch + transformers, ~1 GB, regenerable from
+# requirements-depth.txt. Kept out of the repo like the other venvs.
+.venv-depth/

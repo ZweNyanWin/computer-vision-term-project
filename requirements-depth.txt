@@ -1,4 +1,15 @@
-# Optional: only needed later for learned monocular depth from the real frog photo.
+# Learned monocular depth (Depth Anything V2 Small) for reconstruct.py
+# --depth-mode model, and therefore for demo.sh steps 3, 4 and 6.
+#
+# Install into its own environment rather than the system Python:
+#
+#   python3 -m venv .venv-depth
+#   .venv-depth/bin/python -m pip install -r requirements-depth.txt
+#
+# demo.sh picks .venv-depth up automatically. Last resolved on 7 September 2026
+# as torch 2.14.0 (MPS) and transformers 5.16.1 on Python 3.12 / arm64 -- note
+# that is a major version above the >=4.40 floor below, and the
+# `pipeline("depth-estimation", ...)` call in reconstruct.py still works on it.
 -r requirements.txt
 transformers>=4.40
 torch>=2.0

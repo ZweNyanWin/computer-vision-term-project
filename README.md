@@ -12,6 +12,15 @@ support, and the constraints on this codebase. Read it before changing anything.
 
 ## Run the offline demo
 
+Learned depth lives in its own environment; there is no conda on the machine this
+was last run on.
+
+```bash
+python3 -m venv .venv-depth
+.venv-depth/bin/python -m pip install -r requirements-depth.txt
+DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3     # warms the Depth Anything cache once
+```
+
 ```bash
 conda activate cv
 python run_progress_demo.py
