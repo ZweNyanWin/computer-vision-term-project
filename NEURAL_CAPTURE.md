@@ -537,10 +537,121 @@ Suggested report wording:
 > reconstruction. This is a property of single-session object-on-table capture,
 > not a failure of the method.
 
-Do not flip the frog and merge a second session. Flipping creates a second rigid
-scene; COLMAP would either split the models or register them into one using the
-shared background and place the inverted views wrongly. The two models also have
-independent scale, so a merge means retraining.
+That wording is honest, and it is what the current model supports. But if the
+brief asks for a genuinely closed object — top **and** underside — the section
+below is how to shoot it. Read it instead of improvising, because the obvious
+approach is the one that fails.
+
+## Shooting the whole sphere: top and bottom
+
+### Why you cannot just flip it over
+
+Turn the frog upside down for a second session and COLMAP sees a room that did
+not move and an object that jumped. It resolves that contradiction the wrong way:
+the background is large, textured and static, so it wins the registration, and the
+upside-down views get placed as if the *camera* went under the floor. You get one
+model with a second frog fused into it at the wrong orientation, or two models
+that will not merge. The two reconstructions also carry independent scale, so
+stitching them afterwards is a second problem on top of the first.
+
+There are two ways out. Take the first if the frog will balance.
+
+### Method A — lift it off the table (recommended)
+
+Put the frog on a support **much narrower than the frog itself**, so the camera can
+see underneath in the same session. A small jar, a spice bottle, a bottle neck, a
+cardboard tube — 8 to 15 cm tall, and narrower than the frog's footprint. Fix it
+down with Blu-Tack or museum putty so it cannot slip or rotate; a wobble mid-session
+is the same failure as flipping it.
+
+Now the only unobserved geometry is the contact patch, a couple of square
+centimetres, instead of the entire base. One session, one rigid scene, no merging,
+no scale problem.
+
+Two things this changes about the room:
+
+- **Background.** Low shots point the camera upward, and a blank ceiling gives
+  COLMAP nothing to match — the same featureless-backdrop failure that killed the
+  full-resolution pilot ring. Put something patterned where the low shots will look:
+  a printed sheet, a patterned cloth, a bookshelf in frame. Clutter is your friend
+  here.
+- **Light.** The underside will be in shadow. Put a white sheet of paper or card on
+  the floor under the support to bounce light up into it, or add a low lamp. Do not
+  fix this by raising ISO after you have started; exposure is locked for the whole
+  session.
+
+**The rings.** Elevation is measured from the frog's own centre, so 0 degrees is
+level with it and negative is looking up from below.
+
+| Ring | Elevation | Frames | Notes |
+|---|---|---|---|
+| Top-down | +85 deg | 6 | almost straight down |
+| High | +60 deg | 16 | |
+| Upper-mid | +35 deg | 24 | |
+| Level | 0 deg | 24 | phone at the frog's own height |
+| Lower-mid | −35 deg | 24 | crouch, or lower the stool |
+| Low | −60 deg | 16 | phone near the floor, angled up |
+| Bottom-up | −85 deg | 6 | phone flat on the floor, lens up |
+
+About **116 frames**. The two extreme rings are small because a 6-frame circle at
+85 degrees already covers that cap; the middle rings carry the reconstruction.
+
+Put the support on a stool at roughly chest height and the negative rings become
+comfortable rather than acrobatic — that is the whole reason for the stool.
+
+### Method B — two sessions, if it will not balance
+
+Only if the frog cannot be supported. The trick is to make the background move
+*with* the object, so there is no static scene to mis-register against.
+
+1. Glue or putty the frog onto a small board — a book, a placemat, a sheet of stiff
+   card — and cover the board with **rich, non-repeating** markers. Printed random
+   text works; identical coins do not.
+2. Shoot everything above the board.
+3. Lift board and frog **together**, turn the whole assembly over, and shoot again.
+   The frog never moves relative to the board.
+4. Shoot against a plain, featureless surround so the room contributes no matches
+   at all — the opposite of the advice in Method A, and the reason Method A is
+   easier.
+
+Now the marker constellation is rigid with respect to the frog in both sessions,
+and COLMAP can register them into one model. The board's own face is lost where it
+touches the frog, which is fine.
+
+### Settings — the same field card, and it was not followed last time
+
+Everything in **Field card** and **Before you start** above still applies. Three of
+them are the reason the 7 September capture came out the way it did, so they are
+worth repeating:
+
+- **Stay above 30 cm.** Auto-macro silently switched 40 of the 88 frames to the
+  ultra-wide sensor. Turn Auto Macro off in Settings → Camera as well.
+- **Lock exposure with a manual app**, not tap-and-hold. ISO drifted 250–640 and
+  shutter 1/48–1/59 across the last session, and Gaussian Splatting bakes that in
+  as haze.
+- **1/80 s or faster**, and Most Compatible so the files are JPEG.
+
+### Check the coverage before you trust it
+
+Both checks already exist, and the second is the one that would have caught the
+last capture's real weakness:
+
+```bash
+.venv-mlx3d/bin/python tools/check_capture.py data/neural_capture/all   # optics, exposure, blur
+./run_neural.sh sfm && ./run_neural.sh undistort && ./run_neural.sh split
+```
+
+`split` prints the elevation actually achieved per ring. Last time it revealed that
+the four folders were really two bands, +15 and +43 degrees, with nothing above
++53 — the folder names were not evidence. Read that table before shooting again;
+it will tell you whether you got the top and bottom you were aiming for, in
+degrees, from the reconstruction itself.
+
+### If there is only time for one thing
+
+Do Method A. The top of the current model is its weakest region — nothing was shot
+above +53 degrees — so the elevated-support sphere fixes the measured weakness and
+the missing underside in the same session.
 
 ## Record for the report
 
