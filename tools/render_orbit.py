@@ -282,6 +282,24 @@ def main() -> int:
     for old in out.glob("f_*.jpg"):
         old.unlink()
 
+    # Record what the isolation kept. The station quotes this count to visitors,
+    # and a figure that is typed into prose but derived by code goes stale the
+    # first time a parameter changes. tools/check_workshop.py compares the page
+    # against this file, exactly as it does for the visible-triangle counts.
+    import json as _json
+
+    # Counts are integers; floor_height is a world-space coordinate and must keep
+    # its sign and magnitude, so do not coerce it.
+    _counts = ("total", "finite", "spatial", "opaque", "appearance", "connected")
+    (out / "isolation.json").write_text(
+        _json.dumps(
+            {k: (int(v) if k in _counts and v is not None else v)
+             for k, v in isolation.items()},
+            indent=1,
+        )
+        + "\n"
+    )
+
     print(f"object centre {np.round(obj, 3)}  orbit radius {radius:.2f}  object radius {r_obj:.2f}")
     print(f"rendering {args.frames} frames at {big}x{big} -> crop {args.size}x{args.size}")
     background = mx.zeros((3,), dtype=mx.float32)

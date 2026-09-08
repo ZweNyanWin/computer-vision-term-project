@@ -1,12 +1,13 @@
 # Thai Wooden Frog — Image-Based 3D Rendering
 
 Novel-view synthesis of a Thai wooden frog (*kob mai*) from photographs. The
-single-view relief and closed-mesh paths use the project's OpenCV/NumPy renderer;
-the optional neural comparison uses MLX3D's Gaussian rasteriser.
+primary machine-learning path uses MLX3D's Gaussian rasteriser; the single-view
+relief and closed-mesh paths remain geometric comparison baselines.
 
-The physical frog has been photographed: five hero shots plus a closed 36-frame
-turntable ring, all 36 of which segment cleanly. Every number quoted below comes
-from those photographs, scored against frames the pipeline never saw.
+The physical frog has been photographed in two experiments: a closed 36-frame
+turntable ring plus nine elevated frames for the earlier geometric work, and an
+88-photo stationary-object/moving-camera capture for Gaussian Splatting. Each
+reported number is labelled with its own evaluation protocol.
 
 `CLAUDE.md` is the authority on current state, what each result does and does not
 support, and the constraints on this codebase. Read it before changing anything.
@@ -127,10 +128,13 @@ file with all 108 frames embedded — nothing has to travel with it.
 4.1.1 registered **88/88 into one model** at 1.117 px mean reprojection error;
 MLX3D 0.3.0 trained 140,018 Gaussians in 22.9 minutes on the M1 Pro's GPU.
 
-Twelve views were withheld before training, chosen from recovered camera geometry
-and frozen in `config/neural_split.csv`. The splat was then rendered at each
-withheld camera's own pose and intrinsics and scored against the withheld
-photograph, with the nearest same-lens captured photograph as the baseline:
+Twelve views were chosen from recovered camera geometry, frozen in
+`config/neural_split.csv`, and excluded from Gaussian photometric optimization.
+Camera poses and sparse initialization were first solved over all 88 views, so
+this is held-out photometric evaluation over a shared SfM initialization. The
+splat was rendered at each withheld camera's own pose and intrinsics and scored
+against that photograph, with the nearest same-lens training photograph as the
+baseline:
 
 | | PSNR | SSIM |
 |---|---|---|
@@ -156,7 +160,8 @@ python -m pip install -r requirements-mlx3d.txt
 
 ./run_neural.sh all balanced      # ~40 min end to end; stages skip completed
                                   # work, but training is NOT resumable
-mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply
+./demo.sh 8                       # instant: print the saved held-out result
+open workshop/frog-station-standalone.html
 ```
 
 ## Learned depth on a real frog photo

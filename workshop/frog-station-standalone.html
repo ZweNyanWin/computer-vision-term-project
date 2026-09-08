@@ -158,7 +158,7 @@
     <div class="card">
       <h3>88 photographs → Gaussian Splatting</h3>
       <p>Twenty-three minutes on a laptop GPU. 140,018 translucent blobs, fitted so
-      that re-photographing them from any viewpoint reproduces the original. It
+      that re-photographing them near the captured camera path reproduces the original. It
       keeps the grain the mesh loses — but it is a cloud, not a surface, so you
       cannot 3D-print it. For this turntable, 58,981 connected frog blobs are
       isolated from the captured room and shown on black.</p>
@@ -169,10 +169,11 @@
 <section>
   <h2>Does it actually work? We hid twelve photographs and checked.</h2>
   <p class="sub" style="margin-bottom:1em">
-    Twelve of the 88 photographs were locked away <b>before</b> training. The
-    computer never saw them. Afterwards we placed a virtual camera at exactly the
-    spot each hidden photograph was taken from, rendered what the model thought was
-    there, and compared it against the real photograph it had never been shown.
+    Twelve of the 88 photographs were locked away <b>before Gaussian fitting</b>.
+    Their pixels never entered the training loss. Afterwards we placed a virtual
+    camera at exactly the spot each hidden photograph was taken from, rendered what
+    the model predicted, and compared it against the photograph whose pixels were
+    withheld.
   </p>
   <table>
     <thead><tr><th>Compared against the hidden photograph</th>
@@ -300,7 +301,7 @@ var EMBED = {"relief":["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDA
       sNote.textContent = "Isolated from 140,018 trained blobs; each has a position, "
         + "colour and direction-dependent sheen. There is no surface to count.";
       verdict.className = "verdict good";
-      verdict.textContent = "Turn it as far as you like — every angle was photographed.";
+      verdict.textContent = "Turn through the captured orbit — every azimuth has coverage; the underside does not.";
       return;
     }
     if (!m){
@@ -325,7 +326,7 @@ var EMBED = {"relief":["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDA
         : "This is roughly the direction the single photograph was taken from.";
     } else {
       verdict.className = "verdict good";
-      verdict.textContent = "About half, from every angle — that is what a closed "
+      verdict.textContent = "About half, throughout this shown orbit — that is what a closed "
         + "surface looks like.";
     }
   }

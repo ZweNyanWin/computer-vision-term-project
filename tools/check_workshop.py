@@ -138,6 +138,27 @@ def main() -> int:
             if max(body["visible"]) > body["total_triangles"]:
                 bad(f"{tag}: a visible count exceeds the triangle total")
 
+    # 2b. the foreground count quoted to visitors matches what was kept --------
+    iso_path = W / "frames" / "splat" / "isolation.json"
+    if not iso_path.exists():
+        notes.append("no splat/isolation.json yet - re-render to enable the "
+                     "foreground-count check")
+    else:
+        kept = json.loads(iso_path.read_text()).get("connected")
+        if kept is None:
+            bad("splat/isolation.json has no 'connected' count")
+        else:
+            shown = re.findall(r"([\d,]{4,}) (?:foreground|connected frog) (?:blobs|Gaussians)", html)
+            if not shown:
+                bad("index.html does not state the foreground Gaussian count")
+            else:
+                wrong = sorted({v for v in shown if v.replace(",", "") != str(kept)})
+                if wrong:
+                    bad(f"index.html quotes foreground count {wrong} but the "
+                        f"isolation kept {kept:,} - re-run ./run_workshop.sh")
+                else:
+                    notes.append(f"foreground count ({kept:,}) matches the isolation actually applied")
+
     # 3. standalone is genuinely standalone ----------------------------------
     n_data = solo.count("data:image/jpeg;base64,")
     if n_data != FRAMES * len(SETS):

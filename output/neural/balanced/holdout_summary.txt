@@ -11,8 +11,8 @@ HELD-OUT (novel view)
   baseline   PSNR 13.77 dB   SSIM 0.5281   (nearest same-lens training photo, mean separation 8.7 deg)
 
 PAIRED DIFFERENCE, render minus baseline (per held-out view)
-  dPSNR  +6.248 dB  95% CI [+4.543, +7.954]  n=12  t=8.06  p=0.0000
-  dSSIM  +0.2044     95% CI [+0.1633, +0.2455]  n=12  t=10.94  p=0.0000
+  dPSNR  +6.248 dB  95% CI [+4.543, +7.954]  n=12  t=8.06  p<0.0001
+  dSSIM  +0.2044     95% CI [+0.1633, +0.2455]  n=12  t=10.94  p<0.0001
 
   PSNR: significant
   SSIM: significant
@@ -22,8 +22,8 @@ SECONDARY DIAGNOSTIC - object region only (radius 1.0 units, mean 9.1% of frame)
   full-frame error is the frog and how much is the room behind it.
   render     PSNR 24.91 dB   SSIM 0.8079
   baseline   PSNR 12.33 dB   SSIM 0.2141
-  dPSNR  +12.587 dB  95% CI [+10.099, +15.075]  t=11.13  p=0.0000
-  dSSIM  +0.5939     95% CI [+0.5311, +0.6567]  t=20.81  p=0.0000
+  dPSNR  +12.587 dB  95% CI [+10.099, +15.075]  t=11.13  p<0.0001
+  dSSIM  +0.5939     95% CI [+0.5311, +0.6567]  t=20.81  p<0.0001
 
 per-ring held-out means
   high  n=3  render PSNR  18.14  baseline  13.52  dSSIM +0.1924

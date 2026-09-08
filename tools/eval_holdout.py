@@ -121,6 +121,15 @@ def ci95(values: np.ndarray) -> tuple[float, float, float, float]:
     return mean, crit * sem, mean / sem, p
 
 
+def format_p(value: float) -> str:
+    """Format tiny p-values without rounding a nonzero probability to zero."""
+    if not math.isfinite(value):
+        return "p=nan"
+    if value < 0.0001:
+        return "p<0.0001"
+    return f"p={value:.4f}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--splat", required=True, help="trained splat.ply")
@@ -398,8 +407,8 @@ def main() -> int:
     )
     lines.append("")
     lines.append("PAIRED DIFFERENCE, render minus baseline (per held-out view)")
-    lines.append(f"  dPSNR  {mp:+.3f} dB  95% CI [{mp - hp:+.3f}, {mp + hp:+.3f}]  n={len(dp)}  t={tp:.2f}  p={pp:.4f}")
-    lines.append(f"  dSSIM  {ms:+.4f}     95% CI [{ms - hs:+.4f}, {ms + hs:+.4f}]  n={len(dsm)}  t={ts:.2f}  p={ps:.4f}")
+    lines.append(f"  dPSNR  {mp:+.3f} dB  95% CI [{mp - hp:+.3f}, {mp + hp:+.3f}]  n={len(dp)}  t={tp:.2f}  {format_p(pp)}")
+    lines.append(f"  dSSIM  {ms:+.4f}     95% CI [{ms - hs:+.4f}, {ms + hs:+.4f}]  n={len(dsm)}  t={ts:.2f}  {format_p(ps)}")
     lines.append("")
     for metric, mean, half in (("PSNR", mp, hp), ("SSIM", ms, hs)):
         verdict = (
@@ -427,8 +436,8 @@ def main() -> int:
             f"  baseline   PSNR {np.mean([r['psnr_baseline_obj'] for r in hold]):.2f} dB   "
             f"SSIM {np.mean([r['ssim_baseline_obj'] for r in hold]):.4f}"
         )
-        lines.append(f"  dPSNR  {mpo:+.3f} dB  95% CI [{mpo - hpo:+.3f}, {mpo + hpo:+.3f}]  t={tpo:.2f}  p={ppo:.4f}")
-        lines.append(f"  dSSIM  {mso:+.4f}     95% CI [{mso - hso:+.4f}, {mso + hso:+.4f}]  t={tso:.2f}  p={pso:.4f}")
+        lines.append(f"  dPSNR  {mpo:+.3f} dB  95% CI [{mpo - hpo:+.3f}, {mpo + hpo:+.3f}]  t={tpo:.2f}  {format_p(ppo)}")
+        lines.append(f"  dSSIM  {mso:+.4f}     95% CI [{mso - hso:+.4f}, {mso + hso:+.4f}]  t={tso:.2f}  {format_p(pso)}")
 
     lines.append("")
     lines.append("per-ring held-out means")
