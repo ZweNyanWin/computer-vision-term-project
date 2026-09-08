@@ -124,7 +124,7 @@
       <button class="m" data-k="splat" aria-pressed="true">
         <span class="n">88</span>
         <span><b>88 photographs</b>
-          <small>Gaussian Splatting — 140,018 coloured blobs, not a surface</small></span>
+          <small>Gaussian Splatting — 58,981 foreground blobs shown on black</small></span>
       </button>
     </div>
 
@@ -159,8 +159,9 @@
       <h3>88 photographs → Gaussian Splatting</h3>
       <p>Twenty-three minutes on a laptop GPU. 140,018 translucent blobs, fitted so
       that re-photographing them from any viewpoint reproduces the original. It
-      keeps the grain and the soft shadow the mesh loses — but it is a cloud, not a
-      surface, so you cannot 3D-print it.</p>
+      keeps the grain the mesh loses — but it is a cloud, not a surface, so you
+      cannot 3D-print it. For this turntable, 58,981 connected frog blobs are
+      isolated from the captured room and shown on black.</p>
     </div>
   </div>
 </section>
@@ -208,8 +209,11 @@
     perspective projection <code>x = K[R|t]X</code>, back-face culling,
     far-to-near ordering, per-triangle texture mapping and Lambertian shading in
     NumPy and OpenCV. The 88-photograph version uses MLX3D's Gaussian rasteriser;
-    project code recovers and drives its camera orbit. Both paths wrote these
-    frames in advance, so playing the station needs no internet and no GPU.
+    project code recovers and drives its camera orbit, removes the support plane
+    and disconnected room splats for this presentation view, and composites the
+    frog on black. The evaluated 140,018-Gaussian checkpoint itself is unchanged.
+    Both paths wrote these frames in advance, so playing the station needs no
+    internet and no GPU.
   </p>
 </section>
 
@@ -288,10 +292,10 @@
     var m = vis && vis[current];
     if (current === "splat"){
       sLabel.textContent = "What the model is made of";
-      sValue.textContent = "140,018 Gaussians";
+      sValue.textContent = "58,981 foreground Gaussians";
       sBar.style.width = "100%";
-      sNote.textContent = "Translucent blobs, each with a position, a colour and a "
-        + "direction-dependent sheen. There is no surface to count.";
+      sNote.textContent = "Isolated from 140,018 trained blobs; each has a position, "
+        + "colour and direction-dependent sheen. There is no surface to count.";
       verdict.className = "verdict good";
       verdict.textContent = "Turn it as far as you like — every angle was photographed.";
       return;

@@ -12,7 +12,9 @@
 # degrees, from 1, 45 and 88 photographs. Every frame is rendered AHEAD of time.
 # The one- and 45-photo meshes go through this project's NumPy/OpenCV renderer;
 # the 88-photo neural result goes through MLX3D's Gaussian rasteriser, driven by
-# tools/render_orbit.py. Playback then needs no GPU, server or network, so bad
+# tools/render_orbit.py. That presentation render isolates the connected frog
+# cloud from the captured room and places it on black; the evaluated checkpoint
+# itself is never changed. Playback then needs no GPU, server or network, so bad
 # venue wifi cannot change what the visitor sees.
 
 set -euo pipefail

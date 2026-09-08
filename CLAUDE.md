@@ -98,7 +98,7 @@ rebuild_object_capture.sh  regenerates the gitignored Object Capture mesh,
 run_workshop.sh       renders the station's frames and bakes the standalone file
 workshop/index.html   the visitor-facing station (frames/ beside it)
 workshop/frog-station-standalone.html   one file, every frame embedded
-tools/render_orbit.py            turntable of the splat around the recovered axis
+tools/render_orbit.py            object-isolated splat turntable around the recovered axis
 tools/measure_visibility.py      visible-triangle count per angle, per method
 tools/build_workshop.py          bakes the standalone file
 tools/check_workshop.py          verifies the station is complete and offline

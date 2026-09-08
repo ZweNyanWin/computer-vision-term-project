@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 W = ROOT / "workshop"
@@ -57,6 +58,8 @@ def main() -> int:
 
     # 1. frames -------------------------------------------------------------
     sizes = set()
+    splat_black = []
+    splat_edge_black = []
     for tag in SETS:
         got = sorted((W / "frames" / tag).glob("f_*.jpg"))
         if len(got) != FRAMES:
@@ -68,11 +71,25 @@ def main() -> int:
                 bad(f"{f.relative_to(ROOT)} does not decode")
             else:
                 sizes.add(im.shape[:2])
+                if tag == "splat":
+                    black = np.all(im < 12, axis=2)
+                    edge = np.concatenate([
+                        black[:12].ravel(), black[-12:].ravel(),
+                        black[:, :12].ravel(), black[:, -12:].ravel(),
+                    ])
+                    splat_black.append(float(black.mean()))
+                    splat_edge_black.append(float(edge.mean()))
     if len(sizes) > 1:
         bad(f"frames are not all the same size: {sorted(sizes)}")
     elif sizes:
         height, width = sizes.pop()
         notes.append(f"108 frames, all {width}x{height}")
+    if splat_black:
+        if min(splat_black) < 0.55 or min(splat_edge_black) < 0.98:
+            bad("splat frames are not isolated on black - room/support pixels "
+                "have leaked back into the workshop turntable")
+        else:
+            notes.append("splat foreground is isolated on black in every frame")
 
     # 1b. the turntable is a true cycle, not a sweep with a duplicated end -----
     # render3d.py spreads --frames across --sweep inclusively, so asking for 36
@@ -83,7 +100,6 @@ def main() -> int:
     # so check both. The relief is exempt: from behind it is legitimately almost
     # empty, and several of its frames are near-identical for that reason - which
     # is the exhibit, not a defect.
-    import numpy as np
     for tag in ("mesh", "splat"):
         orbit_frames = sorted((W / "frames" / tag).glob("f_*.jpg"))
         if len(orbit_frames) == FRAMES:

@@ -21,6 +21,7 @@ from reconstruct import (  # noqa: E402
 )
 from render3d import load_obj, normalize_mesh, render_frame  # noqa: E402
 from run_progress_demo import create_demo_photo  # noqa: E402
+from tools.render_orbit import foreground_indices  # noqa: E402
 
 
 def unevenly_lit_object(width: int = 300, height: int = 400) -> np.ndarray:
@@ -125,6 +126,34 @@ class PipelineTest(unittest.TestCase):
             changed_pixels = np.any(frame != background, axis=2).sum()
             self.assertGreater(drawn, 50)
             self.assertGreater(changed_pixels, 500)
+
+
+class SplatForegroundTest(unittest.TestCase):
+    def test_isolation_keeps_connected_wood_and_dark_details(self) -> None:
+        # Three close wood points and one dark eye form the object.  A bright
+        # neutral platform touches the same area; a brown room floater is far
+        # away; and one local wood point is too transparent to retain.
+        means = np.array([
+            [0.00, 0.00, 0.00], [0.01, 0.00, 0.00], [0.02, 0.00, 0.00],
+            [0.01, 0.01, 0.00], [0.02, 0.01, 0.00], [2.00, 0.00, 0.00],
+            [0.03, 0.00, 0.00],
+        ], dtype=np.float32)
+        # Convert desired RGB base colours back to SH DC coefficients.
+        rgb = np.array([
+            [.55, .25, .10], [.60, .30, .12], [.48, .20, .08],
+            [.03, .03, .03], [.92, .92, .92], [.55, .25, .10],
+            [.55, .25, .10],
+        ], dtype=np.float32)
+        sh_dc = ((rgb - 0.5) / 0.28209479177387814)[:, None, :]
+        opacity = np.array([3, 3, 3, 3, 3, 3, -6], dtype=np.float32)
+
+        keep, stats = foreground_indices(
+            means, opacity, sh_dc, np.zeros(3), radius=1.0,
+            min_opacity=.02, min_saturation=25, dark_value=160,
+            voxel_size=.025,
+        )
+        self.assertEqual(set(keep.tolist()), {0, 1, 2, 3})
+        self.assertEqual(stats["connected"], 4)
 
 
 if __name__ == "__main__":

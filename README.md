@@ -100,7 +100,11 @@ assertion.
 
 Every frame is rendered ahead of time. The one- and 45-photo paths use this
 project's renderer; the 88-photo path uses MLX3D's Gaussian rasteriser with an
-orbit recovered by project code. Playback needs no GPU, server or network.
+orbit recovered by project code. For the visitor-facing turntable only, the
+renderer isolates the dense connected frog cloud, removes the pale support
+plane and faint floaters, and composites 58,981 foreground Gaussians on black.
+The 140,018-Gaussian checkpoint and held-out evaluation remain unchanged.
+Playback needs no GPU, server or network.
 
 ```bash
 ./run_workshop.sh          # render the frames and bake the standalone file
