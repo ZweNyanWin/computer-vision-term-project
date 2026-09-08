@@ -1,7 +1,8 @@
 # Thai Wooden Frog — Image-Based 3D Rendering
 
-Novel-view synthesis of a Thai wooden frog (*kob mai*) from photographs, built on
-OpenCV and NumPy with no external 3D renderer.
+Novel-view synthesis of a Thai wooden frog (*kob mai*) from photographs. The
+single-view relief and closed-mesh paths use the project's OpenCV/NumPy renderer;
+the optional neural comparison uses MLX3D's Gaussian rasteriser.
 
 The physical frog has been photographed: five hero shots plus a closed 36-frame
 turntable ring, all 36 of which segment cleanly. Every number quoted below comes
@@ -87,10 +88,31 @@ The CSVs in `output/` are the only source for figures quoted in the report — s
   photographs of a stationary frog, then MLX3D training on Metal, with a
   held-out split fixed before training
 
+## The workshop station
+
+`workshop/index.html` is the visitor-facing piece: drag the frog to turn it, and
+switch between the reconstruction built from **1**, **45** and **88**
+photographs. As you turn it, the station shows how much of the model is actually
+facing you — 4,502 of the relief's 4,576 triangles from the front, and **1** from
+behind, against a steady half of the closed mesh's 50,000 from every angle. That
+is the whole argument about viewpoint coverage, made by dragging rather than by
+assertion.
+
+Every frame is rendered ahead of time. The one- and 45-photo paths use this
+project's renderer; the 88-photo path uses MLX3D's Gaussian rasteriser with an
+orbit recovered by project code. Playback needs no GPU, server or network.
+
+```bash
+./run_workshop.sh          # render the frames and bake the standalone file
+./run_workshop.sh check    # verify it is complete, consistent and offline
+./run_workshop.sh serve    # http://127.0.0.1:8765
+```
+
+`workshop/frog-station-standalone.html` is the same station as a single roughly 4 MB
+file with all 108 frames embedded — nothing has to travel with it.
+
 ## What remains pending
 
-- the interactive workshop station — the splat is viewable today with
-  `mlx3d-view`, but nothing has been built around it for visitors
 - optional extensions: a genuine second elevation band for the neural capture
   (it covers only +15° and +43°), a re-shoot with exposure locked, and the
   classifier

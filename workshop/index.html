@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How many photographs make a frog? — kob mai workshop station</title>
+<style>
+  :root{
+    --bg:#0e0d0c; --panel:#171513; --line:#2b2724; --ink:#f2ece3;
+    --dim:#a49a8c; --warm:#d9a05b; --good:#7fb069; --bad:#c76b5a;
+    --pad:clamp(16px,3vw,34px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%}
+  body{padding:var(--pad);max-width:1180px;margin:0 auto}
+  h1{font-size:clamp(26px,4.4vw,46px);line-height:1.1;margin:0 0 .25em;letter-spacing:-.02em}
+  h2{font-size:clamp(18px,2.4vw,25px);margin:0 0 .5em;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:clamp(15px,1.9vw,20px);margin:0 0 1.6em;max-width:62ch}
+  .thai{color:var(--warm);font-weight:600}
+
+  /* ---------------------------------------------------------------- viewer */
+  .stage{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
+    gap:var(--pad);align-items:start}
+  @media(max-width:820px){.stage{grid-template-columns:1fr}}
+
+  .viewer{position:relative;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;aspect-ratio:1;touch-action:none;cursor:grab;
+    user-select:none;-webkit-user-select:none}
+  .viewer:active{cursor:grabbing}
+  .viewer img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    display:block;pointer-events:none;opacity:0}
+  .viewer img.on{opacity:1}
+  .hint{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;
+    background:linear-gradient(transparent,rgba(0,0,0,.75));color:var(--ink);
+    font-size:14px;text-align:center;pointer-events:none;transition:opacity .35s}
+  .hint.gone{opacity:0}
+  .angle{position:absolute;top:10px;right:12px;font-variant-numeric:tabular-nums;
+    font-size:13px;color:var(--dim);background:rgba(0,0,0,.5);
+    padding:3px 8px;border-radius:6px;pointer-events:none}
+
+  /* --------------------------------------------------------------- controls */
+  .methods{display:grid;gap:10px;margin:0 0 var(--pad)}
+  .m{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;
+    width:100%;text-align:left;padding:13px 15px;border-radius:11px;
+    background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    font:inherit;cursor:pointer;transition:border-color .15s,background .15s}
+  .m:hover{border-color:#4a423a}
+  .m[aria-pressed="true"]{border-color:var(--warm);background:#211c16}
+  .m:focus-visible{outline:2px solid var(--warm);outline-offset:2px}
+  .n{font-size:clamp(21px,3vw,30px);font-weight:700;font-variant-numeric:tabular-nums;
+    color:var(--warm);min-width:2.1em;text-align:right;line-height:1}
+  .m small{display:block;color:var(--dim);font-size:13px;margin-top:2px}
+  .m b{font-weight:600;font-size:15px}
+
+  .readout{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:15px 17px;margin-bottom:var(--pad)}
+  .bar{height:9px;border-radius:5px;background:#241f1b;overflow:hidden;margin:9px 0 7px}
+  .bar i{display:block;height:100%;background:var(--warm);width:0;
+    transition:width .12s linear;border-radius:5px}
+  .big{font-size:clamp(20px,2.8vw,27px);font-weight:700;font-variant-numeric:tabular-nums}
+  .note{color:var(--dim);font-size:14px;margin:0}
+  .verdict{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);
+    font-size:15px}
+  .verdict.bad{color:var(--bad)} .verdict.good{color:var(--good)}
+
+  /* ---------------------------------------------------------------- prose */
+  section{margin-top:calc(var(--pad)*1.6)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h3{margin:0 0 .45em;font-size:16px}
+  .card p{margin:0;color:var(--dim);font-size:14.5px}
+  .stat{font-size:clamp(23px,3.2vw,31px);font-weight:700;color:var(--warm);
+    font-variant-numeric:tabular-nums;line-height:1.1}
+  table{border-collapse:collapse;width:100%;font-size:15px;
+    font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:13.5px;text-transform:uppercase;
+    letter-spacing:.05em}
+  td.num{text-align:right}
+  .win{color:var(--good);font-weight:600}
+  footer{margin-top:calc(var(--pad)*1.8);padding-top:var(--pad);
+    border-top:1px solid var(--line);color:var(--dim);font-size:13.5px}
+  .caveat{background:#14120f;border-left:3px solid var(--warm);border-radius:0 8px 8px 0;
+    padding:13px 16px;margin-top:14px;font-size:14px;color:var(--dim)}
+  .caveat b{color:var(--ink)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<h1>How many photographs make a frog?</h1>
+<p class="sub">
+  This is a <span class="thai">kob mai</span> — a Thai wooden frog, carved from a
+  single block of hardwood, hollowed into a resonator and played by scraping a
+  beater down its ridged back. It is a craft object and a musical instrument at
+  once. <b>Drag it to turn it around.</b> Then change how many photographs the
+  computer was allowed to see, and watch what survives.
+</p>
+
+<div class="stage">
+  <div>
+    <div class="viewer" id="viewer" role="img"
+         aria-label="The wooden frog, rotating. Drag left or right to turn it."
+         tabindex="0">
+      <div class="angle" id="angle">0°</div>
+      <div class="hint" id="hint">drag to turn — or use the ← → arrow keys</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="methods" role="group" aria-label="How many photographs the computer saw">
+      <button class="m" data-k="relief" aria-pressed="false">
+        <span class="n">1</span>
+        <span><b>One photograph</b>
+          <small>Depth guessed by a neural network from a single view</small></span>
+      </button>
+      <button class="m" data-k="mesh" aria-pressed="false">
+        <span class="n">45</span>
+        <span><b>45 photographs</b>
+          <small>Photogrammetry — a closed surface, built from many angles</small></span>
+      </button>
+      <button class="m" data-k="splat" aria-pressed="true">
+        <span class="n">88</span>
+        <span><b>88 photographs</b>
+          <small>Gaussian Splatting — 140,018 coloured blobs, not a surface</small></span>
+      </button>
+    </div>
+
+    <div class="readout">
+      <p class="note" id="statLabel">Surface facing you at this angle</p>
+      <div class="big" id="statValue">—</div>
+      <div class="bar"><i id="statBar"></i></div>
+      <p class="note" id="statNote"></p>
+      <div class="verdict" id="verdict"></div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <h2>What each one costs, and what it cannot do</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>One photograph → a relief</h3>
+      <p>Three seconds of computing. A neural network guesses depth from shading
+      alone, so you get the side that faced the camera and <b>nothing behind it</b>.
+      Turn it and the frog thins to a sliver, then vanishes. That is not a bug: the
+      information was never in the photograph.</p>
+    </div>
+    <div class="card">
+      <h3>45 photographs → a closed surface</h3>
+      <p>Eighty seconds of photogrammetry. Because every side was photographed, the
+      model closes: about half its 50,000 triangles face you from <b>any</b> angle,
+      which is what "closed surface" means. The underside is still missing — the
+      frog sat on a table.</p>
+    </div>
+    <div class="card">
+      <h3>88 photographs → Gaussian Splatting</h3>
+      <p>Twenty-three minutes on a laptop GPU. 140,018 translucent blobs, fitted so
+      that re-photographing them from any viewpoint reproduces the original. It
+      keeps the grain and the soft shadow the mesh loses — but it is a cloud, not a
+      surface, so you cannot 3D-print it.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Does it actually work? We hid twelve photographs and checked.</h2>
+  <p class="sub" style="margin-bottom:1em">
+    Twelve of the 88 photographs were locked away <b>before</b> training. The
+    computer never saw them. Afterwards we placed a virtual camera at exactly the
+    spot each hidden photograph was taken from, rendered what the model thought was
+    there, and compared it against the real photograph it had never been shown.
+  </p>
+  <table>
+    <thead><tr><th>Compared against the hidden photograph</th>
+      <th class="num">PSNR</th><th class="num">SSIM</th></tr></thead>
+    <tbody>
+      <tr><td>The model's guess at that viewpoint</td>
+        <td class="num win">20.02 dB</td><td class="num win">0.733</td></tr>
+      <tr><td>Simply showing the nearest photograph we did take (8.7° away)</td>
+        <td class="num">13.77 dB</td><td class="num">0.528</td></tr>
+    </tbody>
+  </table>
+  <div class="cards" style="margin-top:14px">
+    <div class="card"><div class="stat">+6.25 dB</div>
+      <p>better than the nearest real photograph, 95% CI [+4.54, +7.95]</p></div>
+    <div class="card"><div class="stat">12 / 12</div>
+      <p>hidden viewpoints where the model beat that baseline, on both measures</p></div>
+    <div class="card"><div class="stat">88 / 88</div>
+      <p>photographs the software located in 3D, to about one pixel of error</p></div>
+  </div>
+  <div class="caveat">
+    <b>Said precisely:</b> this is held-out <i>photometric</i> evaluation over a
+    <i>shared</i> reconstruction. No hidden pixel was ever trained on — but the
+    camera positions were solved using all 88 photographs together, so 36% of the
+    starting points were informed by the hidden views. That is the standard way
+    this is measured, and it is worth saying out loud rather than claiming the
+    hidden photographs played no part at all.
+  </div>
+</section>
+
+<section>
+  <h2>How these views were rendered</h2>
+  <p class="sub">
+    The one- and 45-photograph meshes use the renderer written for this project:
+    perspective projection <code>x = K[R|t]X</code>, back-face culling,
+    far-to-near ordering, per-triangle texture mapping and Lambertian shading in
+    NumPy and OpenCV. The 88-photograph version uses MLX3D's Gaussian rasteriser;
+    project code recovers and drives its camera orbit. Both paths wrote these
+    frames in advance, so playing the station needs no internet and no GPU.
+  </p>
+</section>
+
+<footer>
+  CSX&nbsp;4213 Computer Vision · Assumption University · a workshop on Thai arts
+  and culture. The frog was photographed three times: a 36-frame turntable ring, 9
+  elevated frames, and an 88-photograph walk-around with the frog held still.
+  Numbers on this page come from <code>output/neural/balanced/</code> and
+  <code>workshop/frames/visibility.json</code>; the methods, and what they do not
+  support, are written up in <code>NEURAL_CAPTURE.md</code>.
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var FRAMES = 36;
+  var META = {
+    // The three source coordinate systems have different zero directions.
+    // These measured phase offsets align the same physical side of the frog
+    // when a visitor switches methods; visibility is indexed by the displayed
+    // asset frame below for the same reason.
+    relief: {dir:"relief", label:"One photograph", phase:28},
+    mesh:   {dir:"mesh",   label:"45 photographs", phase:0},
+    splat:  {dir:"splat",  label:"88 photographs", phase:20}
+  };
+  // Measured by render3d.py, the project's own renderer, and inlined at build
+  // time by tools/build_workshop.py. Inlined rather than fetched because this
+  // station is opened straight off a memory stick as file://, where a fetch of
+  // a sibling file is blocked by the browser and would silently empty the one
+  // number the page is actually about.
+  var vis = {"relief":{"total_triangles":4576,"visible":[1,5,19,46,84,188,446,847,1541,2403,3070,3626,3990,4138,4203,4360,4413,4454,4502,4496,4472,4411,4299,4082,3687,3021,2214,1334,686,479,331,197,145,87,45,14]},"mesh":{"total_triangles":50000,"visible":[20236,20652,20872,21473,21961,21711,21934,22695,23484,23887,24206,23881,24146,24727,25123,25178,25102,25029,25064,24717,24515,24513,24375,23938,23336,23134,23637,23272,22736,22240,21627,21294,21452,20893,20382,20116]}};
+  var current = "splat", frame = 0, imgs = {}, ready = {};
+
+  var viewer  = document.getElementById("viewer"),
+      hint    = document.getElementById("hint"),
+      angleEl = document.getElementById("angle"),
+      sLabel  = document.getElementById("statLabel"),
+      sValue  = document.getElementById("statValue"),
+      sBar    = document.getElementById("statBar"),
+      sNote   = document.getElementById("statNote"),
+      verdict = document.getElementById("verdict");
+
+  function pad(n){ return (n<100?(n<10?"00":"0"):"")+n; }
+  function assetFrame(k){ return (frame + META[k].phase) % FRAMES; }
+
+  // Build all three image sets up front. They are small, local and fixed, so the
+  // drag never waits on a decode.
+  Object.keys(META).forEach(function(k){
+    imgs[k] = []; ready[k] = 0;
+    for (var i=0;i<FRAMES;i++){
+      var im = new Image();
+      im.alt = "";
+      im.addEventListener("load", function(){ ready[k]++; }, {once:true});
+      // The standalone build injects EMBED with every frame as a data: URI, so
+      // that file opens from a memory stick with no sibling folder. This copy
+      // falls back to the relative path.
+      im.src = (typeof EMBED !== "undefined" && EMBED[k])
+             ? EMBED[k][i]
+             : "frames/" + META[k].dir + "/f_" + pad(i) + ".jpg";
+      viewer.appendChild(im);
+      imgs[k].push(im);
+    }
+  });
+
+  function show(){
+    Object.keys(imgs).forEach(function(k){
+      imgs[k].forEach(function(im,i){
+        im.classList.toggle("on", k===current && i===assetFrame(k));
+      });
+    });
+    angleEl.textContent = Math.round(frame*(360/FRAMES)) + "°";
+    stats();
+  }
+
+  function stats(){
+    var m = vis && vis[current];
+    if (current === "splat"){
+      sLabel.textContent = "What the model is made of";
+      sValue.textContent = "140,018 Gaussians";
+      sBar.style.width = "100%";
+      sNote.textContent = "Translucent blobs, each with a position, a colour and a "
+        + "direction-dependent sheen. There is no surface to count.";
+      verdict.className = "verdict good";
+      verdict.textContent = "Turn it as far as you like — every angle was photographed.";
+      return;
+    }
+    if (!m){
+      sLabel.textContent = "Surface facing you at this angle";
+      sValue.textContent = "—";
+      sBar.style.width = "0";
+      sNote.textContent = "";
+      verdict.textContent = "";
+      return;
+    }
+    var v = m.visible[assetFrame(current)], total = m.total_triangles, pct = 100*v/total;
+    sLabel.textContent = "Surface facing you at this angle";
+    sValue.textContent = v.toLocaleString() + " of " + total.toLocaleString()
+                       + " triangles";
+    sBar.style.width = Math.max(0.6, pct) + "%";
+    sNote.textContent = pct.toFixed(1) + "% of the model is pointed towards you.";
+    if (current === "relief"){
+      var bad = pct < 12;
+      verdict.className = "verdict " + (bad ? "bad" : "good");
+      verdict.textContent = bad
+        ? "Almost nothing is left. One photograph cannot see around a corner."
+        : "This is roughly the direction the single photograph was taken from.";
+    } else {
+      verdict.className = "verdict good";
+      verdict.textContent = "About half, from every angle — that is what a closed "
+        + "surface looks like.";
+    }
+  }
+
+  function step(d){
+    frame = (frame + d % FRAMES + FRAMES) % FRAMES;
+    show();
+  }
+
+  // ---- input: pointer drag, touch, wheel, keyboard -----------------------
+  var dragging=false, lastX=0, acc=0, moved=false;
+  var PX_PER_FRAME = 14;
+
+  viewer.addEventListener("pointerdown", function(e){
+    dragging=true; moved=false; lastX=e.clientX; acc=0;
+    idleStop();
+    if (viewer.setPointerCapture) { try{ viewer.setPointerCapture(e.pointerId); }catch(_){} }
+  });
+  viewer.addEventListener("pointermove", function(e){
+    if(!dragging) return;
+    acc += (e.clientX - lastX); lastX = e.clientX;
+    while (Math.abs(acc) >= PX_PER_FRAME){
+      step(acc > 0 ? 1 : -1);
+      acc -= (acc > 0 ? PX_PER_FRAME : -PX_PER_FRAME);
+      moved = true;
+    }
+    if (moved) hint.classList.add("gone");
+  });
+  function release(){ dragging=false; idleArm(); }
+  viewer.addEventListener("pointerup", release);
+  viewer.addEventListener("pointercancel", release);
+  viewer.addEventListener("lostpointercapture", release);
+
+  viewer.addEventListener("keydown", function(e){
+    if (e.key === "ArrowRight"){ step(1); }
+    else if (e.key === "ArrowLeft"){ step(-1); }
+    else return;
+    e.preventDefault(); hint.classList.add("gone"); idleStop(); idleArm();
+  });
+
+  // ---- method buttons ----------------------------------------------------
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".m"));
+  buttons.forEach(function(b){
+    b.addEventListener("click", function(){
+      current = b.getAttribute("data-k");
+      buttons.forEach(function(o){
+        o.setAttribute("aria-pressed", String(o === b));
+      });
+      show();
+    });
+  });
+
+  // ---- attract mode: a table station should invite people in -------------
+  var spin = null, idleTimer = null;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function idleStop(){
+    if (spin){ clearInterval(spin); spin = null; }
+    if (idleTimer){ clearTimeout(idleTimer); idleTimer = null; }
+  }
+  function idleArm(){
+    if (reduce) return;
+    idleStop();
+    idleTimer = setTimeout(function(){
+      spin = setInterval(function(){ step(1); }, 110);
+    }, 12000);
+  }
+
+  show();
+  idleArm();
+})();
+</script>
+</body>
+</html>

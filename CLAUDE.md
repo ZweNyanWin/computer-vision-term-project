@@ -30,7 +30,7 @@ photographs, i.e. Szeliski Chapter 14, image-based rendering.
 | Custom multi-view / structure-from-motion | **Done as a pipeline, not as our own solver** — COLMAP 4.1.1 registers 88/88 at 1.117 px through `run_neural.sh`. The SfM implementation is COLMAP's; ours is the two-camera handling, the split and the evaluation. Object Capture remains a separate black-box comparison |
 | Neural multi-view reconstruction | **Done and held-out scored** — MLX3D 0.3.0 on Metal, 140,018 Gaussians in 22.9 min. Held-out novel view **20.02 dB / 0.7325 SSIM** against a nearest-photograph baseline of 13.77 dB / 0.5281, on 12 views withheld before training. See `output/neural/balanced/` |
 | Classifier (`scraper.py`, `training/train.py`) | **Not started.** Carried over from an earlier topic |
-| Workshop station | **Not started.** The splat is viewable now with `mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply`, but no workshop interface has been built |
+| Workshop station | **Done** — `workshop/index.html`, an offline drag-to-turn station comparing the reconstruction from 1, 45 and 88 photographs, with the visible-surface count changing as the visitor turns it. `workshop/frog-station-standalone.html` is the same thing in one roughly 4 MB file with every frame embedded, for opening off a memory stick. Rebuild with `./run_workshop.sh`; `./run_workshop.sh check` verifies it |
 
 **The numbers currently in `outputs/` come from a synthetic proxy object, not the
 real frog.** `run_progress_demo.py` generates a clearly-labelled synthetic wooden
@@ -95,6 +95,14 @@ run_neural.sh         the whole neural path: prepare -> sfm -> undistort ->
                       training is NOT resumable and refuses to overwrite (RETRAIN=1)
 rebuild_object_capture.sh  regenerates the gitignored Object Capture mesh,
                       usdz and turntable that demo.sh steps 6-7 read
+run_workshop.sh       renders the station's frames and bakes the standalone file
+workshop/index.html   the visitor-facing station (frames/ beside it)
+workshop/frog-station-standalone.html   one file, every frame embedded
+tools/render_orbit.py            turntable of the splat around the recovered axis
+tools/measure_visibility.py      visible-triangle count per angle, per method
+tools/build_workshop.py          bakes the standalone file
+tools/check_workshop.py          verifies the station is complete and offline
+tools/sanitise_splat.py          writes splat_clean.ply without non-finite rows
 .venv-depth/          torch + transformers for learned depth (gitignored)
 .venv-mlx3d/          mlx3d + COLMAP tooling for the neural path (gitignored)
 tools/prepare_neural_dataset.py  four ring folders -> one flat COLMAP-ready set
@@ -316,11 +324,16 @@ machine without `torch`.
 
 ## Next step
 
-The neural branch is finished and scored: capture, 88/88 registration, held-out
-evaluation, and the limitations all recorded above and in `NEURAL_CAPTURE.md`.
-What remains is the **workshop station** — the interactive piece the 22 September
-deliverable actually is. `mlx3d-view` already serves the splat in a browser, so
-the open question is what a visitor does with it, not whether it renders.
+The build is complete: capture, 88/88 registration, held-out evaluation, the
+demonstration, and the workshop station. What is left is rehearsal and the report.
+
+**Before the workshop**, in this order:
+
+1. `./run_workshop.sh check` and `./demo.sh check` — both must say READY on the
+   machine you will actually present from, not this one.
+2. Open `workshop/frog-station-standalone.html` on that machine and drag it.
+   That file needs nothing beside it; the other one needs `frames/`.
+3. Copy the standalone file somewhere that is not this laptop.
 
 Two things would materially improve the reconstruction if there is time, in this
 order:
