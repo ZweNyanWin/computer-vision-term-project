@@ -1,158 +1,153 @@
-# Four-minute demonstration — 31 August 2026 checkpoint
+# Four-minute demonstration — 8 September 2026 machine-learning checkpoint
 
-Run `./demo.sh` and press Enter between steps. Total compute is about 16 seconds;
-the rest of the time is talking. Every slow stage was run beforehand and is read
-back from the file it wrote, and the script prints the command that produced it.
+Use the saved results and the offline workshop. Do not train or rebuild frames
+on stage: the balanced run took 22.9 minutes and MLX3D 0.3.0 cannot resume a
+partly completed training run.
 
-**Before you start:** terminal font large and `demo.sh` already `cd`-ed into the
-project. While online, warm the depth-model cache once with
-`DEMO_ALLOW_DOWNLOAD=1 ./demo.sh 3`; a cold cache downloads about 100 MB. The
-normal demo runs step 3 in cache-only mode so a poor venue connection cannot
-stall it with network retries. Then run the complete demo once through.
+## Preflight before class
 
----
+From Terminal:
 
-## 0:00 – 0:30 · What changed
+    cd "/Users/zwenyanwin/Desktop/computer-vision-term-project"
+    ./demo.sh check
+    ./run_workshop.sh check
+    open workshop/frog-station-standalone.html
 
-> "At the last checkpoint everything ran on a synthetic proxy, because we had no
-> photographs. Since then we have bought the frog, photographed it properly, run
-> the learned depth model, and measured the result against photographs the
-> pipeline never saw. So this time the numbers are about the frog."
+Both checks must print **READY**. Leave the terminal and workshop open. As an
+optional visual fallback, also pre-open:
 
-**Run step 1.** It prints 36 ring photographs and 9 elevated ones.
+    open output/neural/balanced/holdout_contact_sheet.jpg
 
-> "A closed turntable ring: the camera stays fixed and the frog turns ten degrees
-> at a time, so the lighting belongs to the room rather than to the object. Nine
-> more from about sixty degrees above."
+## 0:00–0:25 — What changed
 
----
+Show the frog or the workshop title.
 
-## 0:30 – 1:10 · Segmentation had to change
+> "Last week I had a learned single-image depth relief and a conventional
+> 45-photo mesh. After the teacher asked for a machine-learning method, I built
+> a multi-view 3D Gaussian Splatting pipeline. For this capture the frog stays
+> still and the camera moves around it."
 
-**Run step 2.** → `36 frames checked … frames with background in the corners: 0`
+The key research question is whether the learned representation can synthesize a
+withheld viewpoint more faithfully than simply displaying the nearest photograph.
 
-> "Segmentation was thresholding on brightness, and on real photographs it broke.
-> A real backdrop is never evenly lit — across these frames the corners span 55
-> to 199 grey levels, so a global threshold cuts through the background instead
-> of around the frog. On one frame it inverted completely: it selected the
-> backdrop, and reported a perfectly plausible seventy per cent foreground while
-> doing it.
->
-> It now thresholds on saturation, because a neutral backdrop stays desaturated
-> under any lighting while the wood keeps its hue. Otsu separates it at 0.82 to
-> 0.93 against 0.60 to 0.73 for brightness. All thirty-six frames come out clean."
+## 0:25–0:55 — Show the workflow
 
-*If asked how you knew it was wrong:* the foreground percentage looked fine — we
-only caught it by looking at the mask.
+Run:
 
----
+    sed -n '17,24p' run_neural.sh
 
-## 1:10 – 1:50 · Learned depth, then views nobody photographed
+Point to the six stages: prepare, SfM, undistort, split, train, evaluate/facts.
 
-**Run step 3.** Point at the line `depth map was inverse depth; flipped …`
+> "COLMAP is the geometric front end: it estimates camera intrinsics, poses and
+> sparse structure. MLX3D is the learning stage: it optimizes the positions,
+> shapes, opacity and view-dependent appearance of the 3D Gaussians from the
+> training photographs."
 
-> "Depth Anything V2 on one real photograph — three seconds, no GPU.
->
-> That line matters. The mesh uses the depth value directly as a height, and our
-> camera sits on the low side, so a bigger number means further away. This family
-> of networks predicts the opposite. Used raw, every bump becomes a dent and the
-> frog renders inside out. Rather than trust the checkpoint's convention we
-> measure it: the frog stands in front of its backdrop, so whichever side of the
-> mask holds the smaller values is the near side."
+Do not call COLMAP itself machine learning, and do not describe 3DGS as a
+watertight mesh.
 
-**Run step 4.** Five views from one photograph.
+## 0:55–1:20 — State the capture facts
 
----
+> "There are 88 photographs: 19 low, 37 middle, 24 high and 8 top. EXIF revealed
+> two phone optics, so I calibrated two camera models and undistorted both
+> groups. COLMAP registered 88 out of 88 images at 1.117-pixel mean reprojection
+> error. I froze 76 views for Gaussian fitting and 12 for photometric
+> evaluation."
 
-## 1:50 – 2:40 · The measurement, and what it does not show
+The folder names are shooting groups, not four distinct elevation rings.
+Recovered geometry contains one low band near +15 degrees and one broad upper
+band near +43 degrees.
 
-**Run step 5.**
+## 1:20–2:30 — Compare 1, 45 and 88 photographs
 
-> "We withhold photographs, synthesise the view at each withheld angle from the
-> nearest photograph we kept, and score it against the one we withheld. Then we
-> score a second thing against the same photograph: the nearest kept photograph
-> itself, unaltered — what you would see if you just snapped to the closest
-> frame. That second column is what makes the first mean anything.
->
-> One result clears its confidence interval: at sixty-degree spacing the
-> synthesised view is structurally closer to the withheld photograph, by 0.024
-> SSIM. No PSNR difference at any spacing is distinguishable from zero.
->
-> We had a larger claim here and withdrew it. An earlier run showed a gain at
-> forty degrees; adding one more photograph turned it from plus 0.03 to minus
-> 0.23 decibels. The effect was smaller than the noise, so it is gone, and every
-> number now carries its interval."
+Use the browser workshop. Click **1 photograph** and drag near the rear view;
+the relief becomes a sliver. Without changing the angle, click **45
+photographs** to show the closed mesh. Then click **88 photographs** and drag
+through several views.
 
-*This paragraph is the strongest thing you will say. Do not cut it.*
+> "One photograph gives only a textured relief. Forty-five photographs give a
+> closed, printable photogrammetry mesh. Eighty-eight photographs train a learned
+> Gaussian appearance representation. The balanced Gaussian run used 7,000
+> iterations and took 22.9 minutes on the M1 Pro. The evaluated checkpoint has
+> 140,018 Gaussians. For this display only, 58,981 connected foreground
+> Gaussians are isolated and composited on black; the evaluated model and scores
+> are unchanged."
 
----
+This wording matters: the room was isolated during presentation rendering, not
+removed from the trained checkpoint.
 
-## 2:40 – 3:20 · Why one photograph is not enough
+## 2:30–3:20 — Show the held-out result
 
-**Run step 6.** → relief keeps 0.8% behind; mesh keeps 43.1%.
+Return to Terminal and run:
 
-> "Single-image reconstruction gives a relief, not a solid. Swing the camera
-> behind it and almost nothing survives — under one per cent of its triangles.
->
-> The same photographs through Apple's Object Capture give a closed surface:
-> twenty-five thousand vertices, eighty seconds, no GPU and no cloud. Behind it,
-> forty-three per cent of the surface is still there, because there is a back."
+    ./demo.sh 8
 
-**Run step 7.** The `.usdz` opens — drag it live. Then the turntable video.
+> "At each held-out camera pose I compare the Gaussian render with the real
+> withheld photograph. The baseline is the nearest retained photograph from the
+> same lens, averaging 8.7 degrees away. Full-frame performance is 20.02 dB
+> PSNR and 0.7325 SSIM for the render, versus 13.77 dB and 0.5281 for the
+> baseline. The paired improvements are +6.248 dB and +0.2044 SSIM, both
+> p less than 0.0001. The render wins all 12 views on both metrics."
 
-> "That is our own renderer, not Apple's viewer — the same projection, culling
-> and shading we wrote for the assignment, now with geometry worth rendering."
+Do not call the 26.13 dB training score accuracy; it is fit to observed views.
 
----
+## 3:20–3:45 — Show qualitative evidence
 
-## 3:20 – 4:00 · Honest limits, and what is next
+Scroll the workshop to **Does it actually work?** Point to the withheld-view
+comparison and the shared-SfM caveat. If the browser is difficult to read, show
+the pre-opened contact sheet.
 
-> "Three limits. The advantage over simply showing the nearest photograph is
-> small — at the spacings a dense capture actually gives you, frame-switching is
-> nearly as good. Depth is relative, not metric, so nothing here is in
-> millimetres. And rendering is not yet interactive, which matters because the
-> workshop station is the remaining deliverable.
->
-> One question for you: the reconstruction is photogrammetry. Does the project
-> need a 3D model produced specifically by neural methods — Gaussian splatting or
-> a radiance field — or does the learned depth already in the pipeline satisfy
-> that?"
+> "The 12 test photographs contributed no pixels to the Gaussian loss. However,
+> camera poses and sparse initialization were first solved with all 88
+> photographs, so this is held-out photometric evaluation over a shared SfM
+> initialization, not a fully independent reconstruction."
 
-**Ending on that question is deliberate — it is the one decision that changes
-what you build over the next three weeks.**
+## 3:45–4:00 — Limits and conclusion
 
----
+> "The remaining limitations are exposure drift, only two effective elevation
+> bands, no underside, one object and one capture session, and later use of the
+> same 12 views when comparing vanilla and MCMC variants. The requested
+> machine-learning workflow is complete for this checkpoint; broader capture and
+> a training-only SfM study would strengthen future work."
 
-## If you run long
+Stop there.
 
-Cut in this order:
+## Do not run live
 
-1. Step 4 (the five novel views — step 6 makes the same point better)
-2. Step 1 (say the numbers instead of printing them)
-3. The segmentation detail in step 2 — keep the fact that it broke and was fixed
+- **./run_neural.sh all balanced** — long and training is not resumable.
+- **./run_workshop.sh** with no argument — rebuilds 108 frames.
+- **mlx3d-view .../splat.ply** — the raw checkpoint includes the learned room.
+- **./demo.sh** with no step — it runs the older geometric story.
 
-**Never cut:** the withdrawn claim at 2:40, the relief-versus-mesh numbers, or
-the closing question.
+## Fallback commands
+
+    open workshop/index.html
+    open workshop/frames/splat/f_009.jpg
+    open output/neural/balanced/holdout_contact_sheet.jpg
+    sed -n '/^HELD-OUT/,/^$/p;/^PAIRED/,/^$/p' output/neural/balanced/holdout_summary.txt
 
 ## Likely questions
 
-**"Why is PSNR so low?"**
-> Both columns are silhouette-cropped comparisons between a render and a real
-> photograph, which is conservative by construction. The gain column is the
-> claim; the absolute column is context. A comparable project on the same course
-> reports 13.9 dB by a similar protocol.
+**Why does the raw splat look flesh-like or cloudy?**  
+The optimization learned the room and pale support together with the frog.
+Unconstrained background geometry and exposure drift become translucent
+Gaussians. The workshop selects the connected frog cloud for display without
+changing the scored checkpoint.
 
-**"Why does SSIM disagree with PSNR?"**
-> PSNR rewards sharp pixels, and the baseline is a real photograph — just at the
-> wrong angle. SSIM compares structure, and our render is at the right angle. For
-> novel-view synthesis structure is what matters, but we report both.
+**Is this really machine learning if COLMAP is used?**  
+Yes. COLMAP estimates cameras and sparse initialization. MLX3D performs
+thousands of gradient-based optimization steps to learn the Gaussian scene
+parameters that reproduce the training images.
 
-**"Is Object Capture allowed? Isn't it a rendering engine?"**
-> It reconstructs geometry, it does not render. Everything shown is drawn by our
-> own projection, hidden-surface and shading code. The mesh is reported as a
-> comparison, not as a replacement for the pipeline.
+**Were the test photographs completely unseen?**  
+Their pixels were excluded from Gaussian fitting, but all 88 views contributed
+to the initial SfM solution. Say "held-out photometric evaluation over a shared
+SfM initialization."
 
-**"Can you compare the mesh's score with the relief's?"**
-> No, and we say so in the report. Every photograph scored against the mesh also
-> went into building it, so it measures fit rather than prediction. The
-> comparison we can make is coverage: 43.1 per cent against 0.8.
+**Can the Gaussian model be 3D-printed?**  
+No. It is an appearance cloud, not a watertight surface. Use the 45-photo mesh
+when printable geometry is required.
+
+**Do the four folder names mean four elevation rings?**  
+No. Recovered camera geometry shows two effective bands and no view above
++53.1 degrees.

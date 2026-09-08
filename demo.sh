@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Four-minute demonstration of the 31 August checkpoint.
+# Four-minute demonstration utilities for the 8 September ML checkpoint.
 #
 #   ./demo.sh          run every step, pausing between them
 #   ./demo.sh 3        run step 3 only
@@ -214,8 +214,9 @@ note "The frog stays still and the camera moves, so this is real structure-from-
 need_file output/neural/balanced/holdout_summary.txt "./run_neural.sh all balanced"
 if [ "$CHECK" = 0 ]; then
   sed -n '/^HELD-OUT/,/^$/p;/^PAIRED/,/^$/p' output/neural/balanced/holdout_summary.txt | sed 's/^/    /'
-  note "12 of 88 views withheld before training; every one beats the nearest photograph."
-  note "Inspect it: mlx3d-view model3d/gaussian/frog88_train_balanced/splat.ply"
+  note "12 of 88 views were excluded from Gaussian photometric training; the render wins all 12."
+  note "Camera poses and sparse initialization were solved over all 88 views (shared SfM)."
+  note "Inspect the object-only presentation: open workshop/frog-station-standalone.html"
 fi
 pause
 fi
